@@ -1,0 +1,2343 @@
+{
+  "v": 3,
+  "at": "2026-06-09T07:37:36.715Z",
+  "V": [
+    "Alexandre Nee",
+    "Lucas Gracia",
+    "Tom Roger",
+    "Anthony Leroy",
+    "Mathis Dubreuil",
+    "Thao Leroyer"
+  ],
+  "CFG": {
+    "concession": "Ford Caen",
+    "defaultRelanceDelay": 3,
+    "objMensuel": {},
+    "objVendeur": {
+      "Alexandre Nee": {
+        "2026-06": 14,
+        "2026-05": 9
+      },
+      "Lucas Gracia": {
+        "2026-05": 9,
+        "2026-06": 8
+      },
+      "Tom Roger": {
+        "2026-05": 3,
+        "2026-06": 6
+      },
+      "Anthony Leroy": {
+        "2026-05": 9,
+        "2026-06": 15
+      },
+      "Mathis Dubreuil": {
+        "2026-05": 3,
+        "2026-06": 6
+      },
+      "Thao Leroyer": {
+        "2026-05": 3,
+        "2026-06": 2
+      }
+    },
+    "archiveDelay": 7,
+    "duplicateCheck": true,
+    "defaultSort": "urgence",
+    "vendeurs": [
+      {
+        "name": "Alexandre Nee",
+        "color": "#3b82f6",
+        "restDays": [
+          0,
+          1
+        ],
+        "objectif": 18
+      },
+      {
+        "name": "Lucas Gracia",
+        "color": "#10b981",
+        "restDays": [
+          0,
+          6
+        ],
+        "objectif": 18
+      },
+      {
+        "name": "Tom Roger",
+        "color": "#f59e0b",
+        "restDays": [
+          0,
+          1
+        ],
+        "objectif": 18
+      },
+      {
+        "name": "Anthony Leroy",
+        "color": "#ef4444",
+        "restDays": [
+          0,
+          6
+        ],
+        "objectif": 18
+      },
+      {
+        "name": "Mathis Dubreuil",
+        "color": "#8b5cf6",
+        "restDays": [
+          0,
+          6
+        ],
+        "objectif": 18
+      },
+      {
+        "name": "Thao Leroyer",
+        "color": "#ec4899",
+        "restDays": [
+          0,
+          6
+        ],
+        "objectif": 18
+      }
+    ],
+    "financements": [
+      "Comptant",
+      "LOA",
+      "LLD",
+      "Non défini"
+    ],
+    "modeles": [
+      "Puma",
+      "Puma Gen-E",
+      "Kuga",
+      "Explorer",
+      "Capri",
+      "Mustang",
+      "Tourneo Courier",
+      "Tourneo Connect",
+      "Tourneo Custom",
+      "Transit Courier",
+      "E-Transit Courier",
+      "Transit Connect",
+      "E-Transit Custom",
+      "Transit Custom",
+      "Ranger"
+    ],
+    "rdvTypes": [
+      "Découverte",
+      "Essai",
+      "Renouvellement",
+      "Information(s)",
+      "Autres"
+    ],
+    "rdvSources": [
+      "Appel entrant",
+      "Recommandation",
+      "Prospection téléphonique",
+      "Leap",
+      "UpYourLeads",
+      "Atelier",
+      "Client existant",
+      "Passage",
+      "Autres"
+    ],
+    "relanceTypes": [
+      "Relance tél.",
+      "RDV Showroom",
+      "RDV Essai",
+      "Email",
+      "SMS",
+      "WhatsApp",
+      "Autre"
+    ],
+    "_typesMigrated": true,
+    "_typesMigratedV2": true
+  },
+  "DB": {
+    "0:2026-05-25": {
+      "ventes": 1
+    },
+    "3:2026-05-25": {
+      "ventes": 1,
+      "appels": 1,
+      "essais": 1
+    },
+    "3:2026-05-27": {
+      "livraisons": 4,
+      "appels": 5,
+      "essais": 3,
+      "ventes": 4
+    },
+    "1:2026-05-27": {
+      "appels": 2,
+      "essais": 2,
+      "livraisons": 1,
+      "ventes": 1
+    },
+    "0:2026-05-27": {
+      "appels": 5,
+      "essais": 3,
+      "ventes": 1,
+      "livraisons": 6
+    },
+    "2:2026-05-27": {
+      "appels": 2,
+      "essais": 2,
+      "ventes": 1
+    },
+    "1:2026-05-28": {
+      "crm": 1,
+      "noreply": 1,
+      "appels": 1
+    },
+    "0:2026-05-28": {
+      "ventes": 1,
+      "appels": 1,
+      "essais": 1,
+      "reprise": 1
+    },
+    "1:2026-06-02": {
+      "crm": 2,
+      "noreply": 2,
+      "appels": 2
+    },
+    "3:2026-06-03": {
+      "appels": 4,
+      "essais": 2,
+      "ventes": 1,
+      "reprise": 1
+    },
+    "0:2026-06-03": {
+      "appels": 4,
+      "essais": 1,
+      "ventes": 2,
+      "reprise": 2
+    },
+    "1:2026-06-03": {
+      "crm": 2,
+      "noreply": 2,
+      "appels": 2
+    },
+    "2:2026-06-04": {
+      "appels": 1,
+      "essais": 1
+    },
+    "1:2026-06-04": {
+      "crm": 2,
+      "appels": 2
+    },
+    "0:2026-06-04": {
+      "crm": 1,
+      "rdv": 1,
+      "appels": 1
+    },
+    "3:2026-06-04": {
+      "crm": 2,
+      "ventes": 1,
+      "appels": 2,
+      "rdv": 1
+    },
+    "2:2026-06-05": {
+      "appels": 3,
+      "offres": 3,
+      "essais": 1
+    },
+    "3:2026-06-05": {
+      "appels": 5,
+      "offres": 4,
+      "essais": 3,
+      "reprise": 1,
+      "crm": 1,
+      "ventes": 1
+    },
+    "4:2026-06-05": {
+      "appels": 3,
+      "offres": 3,
+      "reprise": 1
+    },
+    "5:2026-06-05": {
+      "appels": 3,
+      "offres": 3,
+      "livraisons": 1,
+      "reprise": 1
+    },
+    "3:2026-06-08": {
+      "crm": 2,
+      "noreply": 2,
+      "appels": 2
+    },
+    "1:2026-06-08": {
+      "ventes": 1
+    },
+    "0:2026-06-09": {
+      "appels": 7,
+      "offres": 4,
+      "essais": 3,
+      "ventes": 1,
+      "crm": 3,
+      "rdv": 2,
+      "noreply": 1
+    },
+    "1:2026-06-09": {
+      "crm": 1,
+      "noreply": 1,
+      "appels": 1
+    },
+    "5:2026-06-09": {
+      "crm": 3,
+      "noreply": 3,
+      "appels": 3
+    },
+    "4:2026-06-09": {
+      "appels": 1,
+      "offres": 1,
+      "essais": 1,
+      "ventes": 1
+    }
+  },
+  "deals": [
+    {
+      "id": 1,
+      "date": "2026-05-02",
+      "vendeur": "Alexandre Nee",
+      "client": "JULLIEN",
+      "vehicule": "Kuga",
+      "financement": "Comptant",
+      "statut": "Vendu",
+      "commentaire": "",
+      "relances": [],
+      "notes": [],
+      "archived": true,
+      "archivedDate": "2026-05-20"
+    },
+    {
+      "id": 2,
+      "date": "2026-05-02",
+      "vendeur": "Alexandre Nee",
+      "client": "HABIT",
+      "vehicule": "Puma Gen-E",
+      "financement": "LLD",
+      "statut": "Vendu",
+      "commentaire": "",
+      "relances": [],
+      "notes": [],
+      "archived": true,
+      "archivedDate": "2026-05-20"
+    },
+    {
+      "id": 3,
+      "date": "2026-05-02",
+      "vendeur": "Alexandre Nee",
+      "client": "SUZANNE",
+      "vehicule": "Puma Gen-E",
+      "financement": "LLD",
+      "statut": "Vendu",
+      "commentaire": "",
+      "relances": [],
+      "notes": [],
+      "archived": true,
+      "archivedDate": "2026-05-20"
+    },
+    {
+      "id": 4,
+      "date": "2026-05-29",
+      "vendeur": "Lucas Gracia",
+      "client": "Prévelle",
+      "vehicule": "Explorer",
+      "financement": "LLD",
+      "statut": "Vendu",
+      "commentaire": "",
+      "relances": [],
+      "notes": [],
+      "livraisonPrevue": "2026-06-30",
+      "postVente": {
+        "parVehicule": {
+          "1": {
+            "oneCare": null,
+            "montantFin": "30000",
+            "organismeFin": "Ford Lease",
+            "forfaitLivraison": true,
+            "assurances": 1
+          }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "date": "2026-05-06",
+      "vendeur": "Tom Roger",
+      "client": "Nomade Burger",
+      "vehicule": "E-Transit Custom",
+      "financement": "LLD",
+      "statut": "Perdu",
+      "commentaire": "",
+      "relances": [],
+      "notes": [
+        {
+          "date": "2026-06-04",
+          "time": "10h56",
+          "text": "Affaire modifiée (Type client → Société)",
+          "auto": true
+        }
+      ],
+      "reportDate": null,
+      "archived": true,
+      "archivedDate": "2026-05-06",
+      "typeClient": "pro",
+      "rdvType": "",
+      "rdvSource": ""
+    },
+    {
+      "id": 6,
+      "date": "2026-05-06",
+      "vendeur": "Tom Roger",
+      "client": "DAVID",
+      "vehicule": "Capri",
+      "financement": "LLD",
+      "statut": "Perdu",
+      "commentaire": "Reprise chez Toyota",
+      "relances": [],
+      "notes": [],
+      "reportDate": null,
+      "archived": true
+    },
+    {
+      "id": 7,
+      "date": "2026-05-06",
+      "vendeur": "Tom Roger",
+      "client": "VS ELEC",
+      "vehicule": "Transit Custom",
+      "financement": "Comptant",
+      "statut": "Perdu",
+      "commentaire": "",
+      "relances": [],
+      "notes": [
+        {
+          "date": "2026-06-04",
+          "time": "10h56",
+          "text": "Affaire modifiée (Type client → Société)",
+          "auto": true
+        }
+      ],
+      "typeClient": "pro",
+      "rdvType": "",
+      "rdvSource": "",
+      "reportDate": null
+    },
+    {
+      "id": 8,
+      "date": "2026-05-05",
+      "vendeur": "Lucas Gracia",
+      "client": "Emmenegger",
+      "vehicule": "Puma Gen-E",
+      "financement": "LOA",
+      "statut": "Perdu",
+      "commentaire": "Pas de reprise",
+      "relances": [],
+      "notes": [],
+      "reportDate": null,
+      "archived": true
+    },
+    {
+      "id": 9,
+      "date": "2026-05-05",
+      "vendeur": "Alexandre Nee",
+      "client": "Mariey",
+      "vehicule": "Kuga",
+      "financement": "LOA",
+      "statut": "Perdu",
+      "commentaire": "Renault Scenic",
+      "relances": [],
+      "notes": [],
+      "reportDate": null,
+      "archived": true,
+      "archivedDate": "2026-05-05"
+    },
+    {
+      "id": 10,
+      "date": "2026-05-05",
+      "vendeur": "Anthony Leroy",
+      "client": "Gallon",
+      "vehicule": "Transit Custom",
+      "financement": "Comptant",
+      "statut": "Perdu",
+      "commentaire": "Reprise T6",
+      "relances": [],
+      "notes": [],
+      "reportDate": null,
+      "archived": true
+    },
+    {
+      "id": 11,
+      "date": "2026-05-05",
+      "vendeur": "Anthony Leroy",
+      "client": "MAISON LEMASSON",
+      "vehicule": "Transit Custom",
+      "financement": "Comptant",
+      "statut": "Vendu",
+      "commentaire": "Reprise Custom",
+      "relances": [],
+      "notes": [],
+      "reportDate": null
+    },
+    {
+      "id": 12,
+      "date": "2026-05-05",
+      "vendeur": "Anthony Leroy",
+      "client": "BEAUBOUIS",
+      "vehicule": "Transit Custom",
+      "financement": "LOA",
+      "statut": "Reporté",
+      "commentaire": "Reprise IVECO Daily",
+      "relances": [],
+      "notes": [
+        {
+          "date": "2026-06-03",
+          "time": "16h46",
+          "text": "Reporté au 3 juillet",
+          "auto": true
+        },
+        {
+          "date": "2026-06-04",
+          "time": "10h56",
+          "text": "Affaire modifiée (Type client → Société)",
+          "auto": true
+        }
+      ],
+      "reportDate": "2026-07-03",
+      "reportMotif": "",
+      "typeClient": "pro",
+      "rdvType": "",
+      "rdvSource": ""
+    },
+    {
+      "id": 13,
+      "date": "2026-05-04",
+      "vendeur": "Alexandre Nee",
+      "client": "JANNOT",
+      "vehicule": "Capri",
+      "financement": "LLD",
+      "statut": "Perdu",
+      "commentaire": "Reprise Tesla Model 3",
+      "relances": [],
+      "notes": [],
+      "reportDate": null,
+      "archived": true,
+      "archivedDate": "2026-05-04"
+    },
+    {
+      "id": 14,
+      "date": "2026-05-04",
+      "vendeur": "Anthony Leroy",
+      "client": "SAS LA ROCHE",
+      "vehicule": "Transit Custom",
+      "financement": "Comptant",
+      "statut": "Perdu",
+      "commentaire": "Pas de reprise (8 mois)",
+      "relances": [],
+      "notes": [],
+      "reportDate": null,
+      "archived": true,
+      "archivedDate": "2026-05-04"
+    },
+    {
+      "id": 15,
+      "date": "2026-05-04",
+      "vendeur": "Lucas Gracia",
+      "client": "FONTAINE",
+      "vehicule": "Puma Gen-E",
+      "financement": "LOA",
+      "statut": "En cours",
+      "commentaire": "Reprise T-ROC en cours",
+      "relances": [
+        {
+          "id": 223,
+          "date": "2026-06-08",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "Fait"
+        },
+        {
+          "id": 253,
+          "date": "2026-06-10",
+          "type": "Relance tél.",
+          "note": "Pas de réponse — rappel J+1",
+          "statut": "À faire"
+        }
+      ],
+      "notes": [
+        {
+          "date": "2026-06-02",
+          "time": "19:12",
+          "text": "Pas de réponse / Messagerie 📵",
+          "auto": true
+        },
+        {
+          "date": "2026-06-03",
+          "time": "16h54",
+          "text": "Pas de réponse / Messagerie 📵",
+          "auto": true
+        },
+        {
+          "date": "2026-06-04",
+          "time": "21h52",
+          "text": "Nouvelle relance planifiée",
+          "auto": true
+        },
+        {
+          "date": "2026-06-09",
+          "time": "09h05",
+          "text": "Pas de réponse / Messagerie 📵",
+          "auto": true
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "date": "2026-05-04",
+      "vendeur": "Anthony Leroy",
+      "client": "VIRIA",
+      "vehicule": "Explorer",
+      "financement": "LLD",
+      "statut": "Reporté",
+      "commentaire": "Offre groupe entretiens",
+      "relances": [],
+      "notes": [
+        {
+          "date": "2026-06-04",
+          "time": "10h56",
+          "text": "Affaire modifiée (Type client → Société)",
+          "auto": true
+        },
+        {
+          "date": "2026-06-04",
+          "time": "22h51",
+          "text": "Reporté au 4 juillet",
+          "auto": true
+        }
+      ],
+      "typeClient": "pro",
+      "rdvType": "",
+      "rdvSource": "",
+      "reportDate": "2026-07-04",
+      "reportMotif": ""
+    },
+    {
+      "id": 20,
+      "date": "2026-05-25",
+      "vendeur": "Anthony Leroy",
+      "client": "BATI BESSIN",
+      "vehicule": "Transit Custom · Transit Custom",
+      "financement": "LOA",
+      "vehicules": [
+        {
+          "id": 1779738363764,
+          "modele": "Transit Custom",
+          "financement": "LOA",
+          "qty": 1
+        },
+        {
+          "id": 1779738368364,
+          "modele": "Transit Custom",
+          "financement": "LOA",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Client existant",
+      "essai": true,
+      "notes": [
+        {
+          "date": "2026-05-27",
+          "time": "08:23",
+          "text": "Véhicule livré",
+          "auto": true
+        }
+      ],
+      "relances": [],
+      "livre": true,
+      "livreDate": "2026-05-27",
+      "archived": true,
+      "archivedDate": "2026-05-27"
+    },
+    {
+      "id": 21,
+      "date": "2026-05-04",
+      "vendeur": "Lucas Gracia",
+      "client": "PAGNON Clémence",
+      "vehicule": "Tourneo Courier",
+      "financement": "Comptant",
+      "vehicules": [
+        {
+          "id": 1779863078440,
+          "modele": "Tourneo Courier",
+          "financement": "Comptant",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": true,
+      "notes": [
+        {
+          "date": "2026-05-27",
+          "time": "09:00",
+          "text": "Véhicule livré",
+          "auto": true
+        }
+      ],
+      "relances": [],
+      "livre": true,
+      "livreDate": "2026-05-27",
+      "archived": true,
+      "archivedDate": "2026-05-27"
+    },
+    {
+      "id": 22,
+      "date": "2026-05-27",
+      "vendeur": "Alexandre Nee",
+      "client": "LEMPERRIERE Kevin",
+      "vehicule": "Puma",
+      "financement": "LLD",
+      "vehicules": [
+        {
+          "id": 1779863182968,
+          "modele": "Puma",
+          "financement": "LLD",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": true,
+      "notes": [],
+      "relances": []
+    },
+    {
+      "id": 23,
+      "date": "2026-05-27",
+      "vendeur": "Alexandre Nee",
+      "client": "LECUYER Dany",
+      "vehicule": "Puma Gen-E",
+      "financement": "LLD",
+      "vehicules": [
+        {
+          "id": 1779863206547,
+          "modele": "Puma Gen-E",
+          "financement": "LLD",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": false,
+      "notes": [],
+      "relances": []
+    },
+    {
+      "id": 24,
+      "date": "2026-05-27",
+      "vendeur": "Alexandre Nee",
+      "client": "GOUABAULT Fabienne",
+      "vehicule": "Puma Gen-E",
+      "financement": "LOA",
+      "vehicules": [
+        {
+          "id": 1779863229679,
+          "modele": "Puma Gen-E",
+          "financement": "LOA",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Appel entrant",
+      "essai": true,
+      "notes": [],
+      "relances": []
+    },
+    {
+      "id": 25,
+      "date": "2026-05-27",
+      "vendeur": "Alexandre Nee",
+      "client": "FLECHELLE Tony",
+      "vehicule": "Kuga",
+      "financement": "Comptant",
+      "vehicules": [
+        {
+          "id": 1779863252572,
+          "modele": "Kuga",
+          "financement": "Comptant",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": true,
+      "notes": [],
+      "relances": [],
+      "reportDate": null
+    },
+    {
+      "id": 26,
+      "date": "2026-05-27",
+      "vendeur": "Alexandre Nee",
+      "client": "SAILLARD CORINNE",
+      "vehicule": "Puma",
+      "financement": "Comptant",
+      "vehicules": [
+        {
+          "id": 1779863285450,
+          "modele": "Puma",
+          "financement": "Comptant",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": false,
+      "notes": [],
+      "relances": []
+    },
+    {
+      "id": 27,
+      "date": "2026-05-27",
+      "vendeur": "Tom Roger",
+      "client": "NABA TECHNI",
+      "vehicule": "Transit Custom",
+      "financement": "LOA",
+      "vehicules": [
+        {
+          "id": 1779863333027,
+          "modele": "Transit Custom",
+          "financement": "LOA",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Appel entrant",
+      "essai": true,
+      "notes": [],
+      "relances": []
+    },
+    {
+      "id": 28,
+      "date": "2026-05-27",
+      "vendeur": "Tom Roger",
+      "client": "DAVID GUILLOTTE",
+      "vehicule": "Capri",
+      "financement": "LLD",
+      "vehicules": [
+        {
+          "id": 1779863361289,
+          "modele": "Capri",
+          "financement": "LLD",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": true,
+      "notes": [],
+      "relances": [],
+      "reportDate": null
+    },
+    {
+      "id": 29,
+      "date": "2026-05-27",
+      "vendeur": "Anthony Leroy",
+      "client": "TRANSFERT WEST",
+      "vehicule": "Mustang",
+      "financement": "LLD",
+      "vehicules": [
+        {
+          "id": 1779863427114,
+          "modele": "Mustang",
+          "financement": "LLD",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Client existant",
+      "essai": true,
+      "notes": [],
+      "relances": [],
+      "reportDate": null
+    },
+    {
+      "id": 30,
+      "date": "2026-05-27",
+      "vendeur": "Anthony Leroy",
+      "client": "DMBA",
+      "vehicule": "Kuga",
+      "financement": "Comptant",
+      "vehicules": [
+        {
+          "id": 1779863446271,
+          "modele": "Kuga",
+          "financement": "Comptant",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": true,
+      "notes": [],
+      "relances": [],
+      "reportDate": null
+    },
+    {
+      "id": 31,
+      "date": "2026-05-27",
+      "vendeur": "Anthony Leroy",
+      "client": "BOS CARRELAGE",
+      "vehicule": "E-Transit Custom",
+      "financement": "Comptant",
+      "vehicules": [
+        {
+          "id": 1779863471898,
+          "modele": "E-Transit Custom",
+          "financement": "Comptant",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Atelier",
+      "essai": true,
+      "notes": [],
+      "relances": []
+    },
+    {
+      "id": 32,
+      "date": "2026-05-27",
+      "vendeur": "Anthony Leroy",
+      "client": "EMYTINE",
+      "vehicule": "Transit Custom",
+      "financement": "LOA",
+      "vehicules": [
+        {
+          "id": 1779863493685,
+          "modele": "Transit Custom",
+          "financement": "LOA",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Appel entrant",
+      "essai": false,
+      "notes": [],
+      "relances": [],
+      "reportDate": null
+    },
+    {
+      "id": 33,
+      "date": "2026-05-27",
+      "vendeur": "Anthony Leroy",
+      "client": "UTILEO",
+      "vehicule": "Transit Custom",
+      "financement": "Comptant",
+      "vehicules": [
+        {
+          "id": 1779863524499,
+          "modele": "Transit Custom",
+          "financement": "Comptant",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Client existant",
+      "essai": false,
+      "notes": [],
+      "relances": [],
+      "reportDate": null
+    },
+    {
+      "id": 34,
+      "date": "2026-05-27",
+      "vendeur": "Lucas Gracia",
+      "client": "REUSTE",
+      "vehicule": "Capri",
+      "financement": "LOA",
+      "vehicules": [
+        {
+          "id": 1779865383953,
+          "modele": "Capri",
+          "financement": "LOA",
+          "qty": 1
+        }
+      ],
+      "statut": "Perdu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": true,
+      "notes": [
+        {
+          "date": "2026-05-28",
+          "time": "12:17",
+          "text": "Pas de réponse / Messagerie 📵",
+          "auto": true
+        },
+        {
+          "date": "2026-06-02",
+          "time": "19:12",
+          "text": "Pas de réponse / Messagerie 📵",
+          "auto": true
+        },
+        {
+          "date": "2026-06-03",
+          "time": "16h54",
+          "text": "Pas de réponse / Messagerie 📵",
+          "auto": true
+        },
+        {
+          "date": "2026-06-04",
+          "time": "21h52",
+          "text": "Nouvelle relance planifiée",
+          "auto": true
+        }
+      ],
+      "relances": [
+        {
+          "id": 206,
+          "date": "2026-05-27",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "Fait"
+        },
+        {
+          "id": 208,
+          "date": "2026-05-29",
+          "type": "Relance tél.",
+          "note": "Pas de réponse — rappel J+1",
+          "statut": "Fait"
+        },
+        {
+          "id": 210,
+          "date": "2026-06-03",
+          "type": "Relance tél.",
+          "note": "Pas de réponse — rappel J+1",
+          "statut": "Fait"
+        },
+        {
+          "id": 217,
+          "date": "2026-06-04",
+          "type": "Relance tél.",
+          "note": "Pas de réponse — rappel J+1",
+          "statut": "Fait"
+        }
+      ],
+      "reportDate": null
+    },
+    {
+      "id": 36,
+      "date": "2026-06-03",
+      "vendeur": "Anthony Leroy",
+      "client": "BATI BESSIN",
+      "typeClient": "pro",
+      "nom": "",
+      "prenom": "",
+      "entreprise": "BATI BESSIN",
+      "tel": "",
+      "email": "",
+      "vehicule": "Explorer",
+      "financement": "LOA",
+      "vehicules": [
+        {
+          "id": 1780498094777,
+          "modele": "Explorer",
+          "financement": "LOA",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Client existant",
+      "essai": true,
+      "notes": [],
+      "relances": [],
+      "livraisonPrevue": "2026-06-25",
+      "postVente": {
+        "parVehicule": {
+          "1780498094777": {
+            "oneCare": null,
+            "montantFin": "35827",
+            "organismeFin": "Ford Credit",
+            "forfaitLivraison": true,
+            "assurances": 2
+          }
+        }
+      }
+    },
+    {
+      "id": 37,
+      "date": "2026-06-02",
+      "vendeur": "Anthony Leroy",
+      "client": "SCEA LA HOGUAISE",
+      "typeClient": "pro",
+      "nom": "",
+      "prenom": "",
+      "entreprise": "SCEA LA HOGUAISE",
+      "tel": "",
+      "email": "",
+      "vehicule": "Transit Custom",
+      "financement": "LOA",
+      "vehicules": [
+        {
+          "id": 1780498272828,
+          "modele": "Transit Custom",
+          "financement": "LOA",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": true,
+      "notes": [
+        {
+          "date": "2026-06-04",
+          "time": "22h09",
+          "text": "RDV showroom programmé 🏢",
+          "auto": true
+        },
+        {
+          "date": "2026-06-08",
+          "time": "09h01",
+          "text": "Pas de réponse / Messagerie 📵",
+          "auto": true
+        }
+      ],
+      "relances": [
+        {
+          "id": 231,
+          "date": "2026-06-05",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "Fait"
+        },
+        {
+          "id": 213,
+          "date": "2026-06-08",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "Fait"
+        },
+        {
+          "id": 243,
+          "date": "2026-06-09",
+          "type": "Relance tél.",
+          "note": "Pas de réponse — rappel J+1",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 38,
+      "date": "2026-06-03",
+      "vendeur": "Anthony Leroy",
+      "client": "EARL SOUS LES BUISSONNETS",
+      "typeClient": "pro",
+      "nom": "",
+      "prenom": "",
+      "entreprise": "EARL SOUS LES BUISSONNETS",
+      "tel": "",
+      "email": "",
+      "vehicule": "Ranger",
+      "financement": "Comptant",
+      "vehicules": [
+        {
+          "id": 1780498324709,
+          "modele": "Ranger",
+          "financement": "Comptant",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": {
+        "vehicule": "RANGER",
+        "montant": "26000",
+        "note": ""
+      },
+      "rdvType": "",
+      "rdvSource": "Client existant",
+      "essai": false,
+      "notes": [
+        {
+          "date": "2026-06-04",
+          "time": "22h08",
+          "text": "Vente conclue 🏆",
+          "auto": true
+        },
+        {
+          "date": "2026-06-08",
+          "time": "09h01",
+          "text": "Pas de réponse / Messagerie 📵",
+          "auto": true
+        }
+      ],
+      "relances": [
+        {
+          "id": 227,
+          "date": "2026-06-05",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "Fait"
+        },
+        {
+          "id": 214,
+          "date": "2026-06-08",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "Fait"
+        },
+        {
+          "id": 244,
+          "date": "2026-06-09",
+          "type": "Relance tél.",
+          "note": "Pas de réponse — rappel J+1",
+          "statut": "À faire"
+        }
+      ],
+      "reportDate": null
+    },
+    {
+      "id": 39,
+      "date": "2026-06-03",
+      "vendeur": "Anthony Leroy",
+      "client": "SNC SARAH ETHAN",
+      "typeClient": "pro",
+      "nom": "",
+      "prenom": "",
+      "entreprise": "SNC SARAH ETHAN",
+      "tel": "",
+      "email": "",
+      "vehicule": "Transit Custom",
+      "financement": "LOA",
+      "vehicules": [
+        {
+          "id": 1780498362294,
+          "modele": "Transit Custom",
+          "financement": "LOA",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": false,
+      "notes": [],
+      "relances": [
+        {
+          "id": 232,
+          "date": "2026-06-19",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 40,
+      "date": "2026-06-03",
+      "vendeur": "Alexandre Nee",
+      "client": "VINCENT LAMARE",
+      "typeClient": "part",
+      "nom": "LAMARE",
+      "prenom": "VINCENT",
+      "entreprise": "",
+      "tel": "",
+      "email": "",
+      "vehicule": "Kuga",
+      "financement": "LOA",
+      "vehicules": [
+        {
+          "id": 1780498442395,
+          "modele": "Kuga",
+          "financement": "LOA",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": false,
+      "notes": [
+        {
+          "date": "2026-06-09",
+          "time": "09h05",
+          "text": "Pas de réponse / Messagerie 📵",
+          "auto": true
+        }
+      ],
+      "relances": [
+        {
+          "id": 216,
+          "date": "2026-06-06",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "Fait"
+        },
+        {
+          "id": 251,
+          "date": "2026-06-10",
+          "type": "Relance tél.",
+          "note": "Pas de réponse — rappel J+1",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 41,
+      "date": "2026-06-03",
+      "vendeur": "Alexandre Nee",
+      "client": "ISABELLE CHARLES-LAIZE",
+      "typeClient": "part",
+      "nom": "CHARLES-LAIZE",
+      "prenom": "ISABELLE",
+      "entreprise": "",
+      "tel": "",
+      "email": "",
+      "vehicule": "Puma Gen-E",
+      "financement": "LLD",
+      "vehicules": [
+        {
+          "id": 1780498601410,
+          "modele": "Puma Gen-E",
+          "financement": "LLD",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": true,
+      "notes": [],
+      "relances": [],
+      "postVente": {
+        "parVehicule": {
+          "1780498601410": {
+            "oneCare": null,
+            "montantFin": "26988",
+            "organismeFin": "Ford Lease",
+            "forfaitLivraison": true,
+            "assurances": 2
+          }
+        }
+      }
+    },
+    {
+      "id": 42,
+      "date": "2026-06-03",
+      "vendeur": "Alexandre Nee",
+      "client": "MAGALIE DEBEZEVILLE",
+      "typeClient": "part",
+      "nom": "DEBEZEVILLE",
+      "prenom": "MAGALIE",
+      "entreprise": "",
+      "tel": "",
+      "email": "",
+      "vehicule": "Puma Gen-E",
+      "financement": "LLD",
+      "vehicules": [
+        {
+          "id": 1780498911886,
+          "modele": "Puma Gen-E",
+          "financement": "LLD",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": {
+        "vehicule": "FIESTA",
+        "montant": "4500",
+        "note": ""
+      },
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": false,
+      "notes": [
+        {
+          "date": "2026-06-04",
+          "time": "22h07",
+          "text": "RDV showroom programmé 🏢",
+          "auto": true
+        }
+      ],
+      "relances": [
+        {
+          "id": 220,
+          "date": "2026-06-06",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "Fait"
+        },
+        {
+          "id": 252,
+          "date": "2026-06-10",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 43,
+      "date": "2026-06-03",
+      "vendeur": "Alexandre Nee",
+      "client": "DENIS GRISARD",
+      "typeClient": "part",
+      "nom": "GRISARD",
+      "prenom": "DENIS",
+      "entreprise": "",
+      "tel": "",
+      "email": "",
+      "vehicule": "Tourneo Connect",
+      "financement": "Comptant",
+      "vehicules": [
+        {
+          "id": 1780502157780,
+          "modele": "Tourneo Connect",
+          "financement": "Comptant",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": {
+        "vehicule": "3008",
+        "montant": "",
+        "note": "15JRS AVANT LIVRAISON"
+      },
+      "rdvType": "",
+      "rdvSource": "Recommandation",
+      "essai": false,
+      "notes": [],
+      "relances": [],
+      "livraisonPrevue": "2026-09-14",
+      "postVente": {
+        "parVehicule": {
+          "1780502157780": {
+            "oneCare": null,
+            "montantFin": "",
+            "organismeFin": "",
+            "forfaitLivraison": true
+          }
+        }
+      }
+    },
+    {
+      "id": 44,
+      "date": "2026-06-04",
+      "vendeur": "Tom Roger",
+      "client": "ANNE COUVERTURE",
+      "typeClient": "pro",
+      "nom": "",
+      "prenom": "",
+      "entreprise": "ANNE COUVERTURE",
+      "tel": "",
+      "email": "",
+      "vehicule": "Transit Custom",
+      "financement": "Non défini",
+      "vehicules": [
+        {
+          "id": 1780589108192,
+          "modele": "Transit Custom",
+          "financement": "Non défini",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": true,
+      "notes": [],
+      "relances": [
+        {
+          "id": 222,
+          "date": "2026-06-09",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 45,
+      "date": "2026-06-05",
+      "vendeur": "Tom Roger",
+      "client": "D SIGN",
+      "typeClient": "pro",
+      "nom": "",
+      "prenom": "",
+      "entreprise": "D SIGN",
+      "tel": "",
+      "email": "",
+      "vehicule": "Transit Custom",
+      "financement": "LOA",
+      "vehicules": [
+        {
+          "id": 1780651623333,
+          "modele": "Transit Custom",
+          "financement": "LOA",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Prospection téléphonique",
+      "essai": true,
+      "notes": [],
+      "relances": [
+        {
+          "id": 228,
+          "date": "2026-06-09",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 46,
+      "date": "2026-06-05",
+      "vendeur": "Tom Roger",
+      "client": "CESR",
+      "typeClient": "pro",
+      "nom": "",
+      "prenom": "",
+      "entreprise": "CESR",
+      "tel": "",
+      "email": "",
+      "vehicule": "Puma Gen-E · Puma Gen-E · Puma Gen-E · Puma Gen-E · Puma Gen-E",
+      "financement": "LOA",
+      "vehicules": [
+        {
+          "id": 1780651651399,
+          "modele": "Puma Gen-E",
+          "financement": "LOA",
+          "qty": 1
+        },
+        {
+          "id": 1780651658081,
+          "modele": "Puma Gen-E",
+          "financement": "LOA",
+          "qty": 1
+        },
+        {
+          "id": 1780651661847,
+          "modele": "Puma Gen-E",
+          "financement": "LOA",
+          "qty": 1
+        },
+        {
+          "id": 1780651665915,
+          "modele": "Puma Gen-E",
+          "financement": "LOA",
+          "qty": 1
+        },
+        {
+          "id": 1780651670982,
+          "modele": "Puma Gen-E",
+          "financement": "LOA",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Prospection téléphonique",
+      "essai": false,
+      "notes": [
+        {
+          "date": "2026-06-05",
+          "time": "11h28",
+          "text": "Concurrence avec R5",
+          "auto": false
+        }
+      ],
+      "relances": [
+        {
+          "id": 229,
+          "date": "2026-06-09",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 47,
+      "date": "2026-06-05",
+      "vendeur": "Tom Roger",
+      "client": "CAMPUS FORMATION",
+      "typeClient": "pro",
+      "nom": "",
+      "prenom": "",
+      "entreprise": "CAMPUS FORMATION",
+      "tel": "",
+      "email": "",
+      "vehicule": "Explorer",
+      "financement": "LLD",
+      "vehicules": [
+        {
+          "id": 1780652390208,
+          "modele": "Explorer",
+          "financement": "LLD",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Client existant",
+      "essai": false,
+      "notes": [],
+      "relances": [
+        {
+          "id": 230,
+          "date": "2026-06-09",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 48,
+      "date": "2026-06-05",
+      "vendeur": "Anthony Leroy",
+      "client": "LS PROTECT COUVERTURE",
+      "typeClient": "pro",
+      "nom": "",
+      "prenom": "",
+      "entreprise": "LS PROTECT COUVERTURE",
+      "tel": "",
+      "email": "",
+      "vehicule": "Mustang",
+      "financement": "LLD",
+      "vehicules": [
+        {
+          "id": 1780652607142,
+          "modele": "Mustang",
+          "financement": "LLD",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": true,
+      "notes": [
+        {
+          "date": "2026-06-05",
+          "time": "16h51",
+          "text": "Vente conclue 🏆",
+          "auto": true
+        }
+      ],
+      "relances": [
+        {
+          "id": 233,
+          "date": "2026-06-08",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "Fait"
+        }
+      ],
+      "postVente": {
+        "parVehicule": {
+          "1780652607142": {
+            "organismeFin": "Ford Lease",
+            "montantFin": "40417.3",
+            "assurances": 2
+          }
+        }
+      }
+    },
+    {
+      "id": 49,
+      "date": "2026-06-05",
+      "vendeur": "Anthony Leroy",
+      "client": "ALMECATEC",
+      "typeClient": "pro",
+      "nom": "",
+      "prenom": "",
+      "entreprise": "ALMECATEC",
+      "tel": "",
+      "email": "",
+      "vehicule": "Transit Custom",
+      "financement": "LLD",
+      "vehicules": [
+        {
+          "id": 1780652648292,
+          "modele": "Transit Custom",
+          "financement": "LLD",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": true,
+      "notes": [],
+      "relances": [
+        {
+          "id": 234,
+          "date": "2026-06-08",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 50,
+      "date": "2026-06-05",
+      "vendeur": "Anthony Leroy",
+      "client": "PPS PROPRETE",
+      "typeClient": "pro",
+      "nom": "",
+      "prenom": "",
+      "entreprise": "PPS PROPRETE",
+      "tel": "",
+      "email": "",
+      "vehicule": "Explorer",
+      "financement": "LLD",
+      "vehicules": [
+        {
+          "id": 1780652677025,
+          "modele": "Explorer",
+          "financement": "LLD",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Appel entrant",
+      "essai": true,
+      "notes": [],
+      "relances": [
+        {
+          "id": 235,
+          "date": "2026-06-08",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 51,
+      "date": "2026-06-05",
+      "vendeur": "Anthony Leroy",
+      "client": "SARL RIVIERE FABRICE",
+      "typeClient": "pro",
+      "nom": "",
+      "prenom": "",
+      "entreprise": "SARL RIVIERE FABRICE",
+      "tel": "",
+      "email": "",
+      "vehicule": "Transit Connect",
+      "financement": "LOA",
+      "vehicules": [
+        {
+          "id": 1780652802658,
+          "modele": "Transit Connect",
+          "financement": "LOA",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": {
+        "vehicule": "SPRINTER",
+        "montant": "13000",
+        "note": "AUTO 1"
+      },
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": false,
+      "notes": [],
+      "relances": [
+        {
+          "id": 236,
+          "date": "2026-06-08",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 52,
+      "date": "2026-06-05",
+      "vendeur": "Mathis Dubreuil",
+      "client": "YVES QUILICHINI",
+      "typeClient": "part",
+      "nom": "QUILICHINI",
+      "prenom": "YVES",
+      "entreprise": "",
+      "tel": "",
+      "email": "",
+      "vehicule": "Kuga",
+      "financement": "Comptant",
+      "vehicules": [
+        {
+          "id": 1780653167187,
+          "modele": "Kuga",
+          "financement": "Comptant",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": {
+        "vehicule": "KUGA",
+        "montant": "3500",
+        "note": "AUTO1"
+      },
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": false,
+      "notes": [],
+      "relances": [
+        {
+          "id": 237,
+          "date": "2026-06-08",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 53,
+      "date": "2026-06-05",
+      "vendeur": "Mathis Dubreuil",
+      "client": "ADRIEN VULLIRZ",
+      "typeClient": "part",
+      "nom": "VULLIRZ",
+      "prenom": "ADRIEN",
+      "entreprise": "",
+      "tel": "",
+      "email": "",
+      "vehicule": "Explorer",
+      "financement": "LLD",
+      "vehicules": [
+        {
+          "id": 1780653208436,
+          "modele": "Explorer",
+          "financement": "LLD",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "UpYourLeads",
+      "essai": false,
+      "notes": [],
+      "relances": [
+        {
+          "id": 238,
+          "date": "2026-06-08",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 54,
+      "date": "2026-06-05",
+      "vendeur": "Thao Leroyer",
+      "client": "ATELIER LEBOUVIER",
+      "typeClient": "pro",
+      "nom": "",
+      "prenom": "",
+      "entreprise": "ATELIER LEBOUVIER",
+      "tel": "",
+      "email": "",
+      "vehicule": "Transit Custom",
+      "financement": "LOA",
+      "vehicules": [
+        {
+          "id": 1780653424951,
+          "modele": "Transit Custom",
+          "financement": "LOA",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Prospection téléphonique",
+      "essai": false,
+      "notes": [
+        {
+          "date": "2026-06-09",
+          "time": "09h06",
+          "text": "Pas de réponse / Messagerie 📵",
+          "auto": true
+        }
+      ],
+      "relances": [
+        {
+          "id": 239,
+          "date": "2026-06-08",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "Fait"
+        },
+        {
+          "id": 254,
+          "date": "2026-06-10",
+          "type": "Relance tél.",
+          "note": "Pas de réponse — rappel J+1",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 55,
+      "date": "2026-06-05",
+      "vendeur": "Thao Leroyer",
+      "client": "CHOUETTE HABITAT",
+      "typeClient": "pro",
+      "nom": "",
+      "prenom": "",
+      "entreprise": "CHOUETTE HABITAT",
+      "tel": "",
+      "email": "",
+      "vehicule": "Transit Custom",
+      "financement": "Non défini",
+      "vehicules": [
+        {
+          "id": 1780653456817,
+          "modele": "Transit Custom",
+          "financement": "Non défini",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Prospection téléphonique",
+      "essai": false,
+      "notes": [
+        {
+          "date": "2026-06-09",
+          "time": "09h06",
+          "text": "Pas de réponse / Messagerie 📵",
+          "auto": true
+        }
+      ],
+      "relances": [
+        {
+          "id": 240,
+          "date": "2026-06-08",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "Fait"
+        },
+        {
+          "id": 255,
+          "date": "2026-06-10",
+          "type": "Relance tél.",
+          "note": "Pas de réponse — rappel J+1",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 56,
+      "date": "2026-06-05",
+      "vendeur": "Thao Leroyer",
+      "client": "BRASSERIE LA LIE",
+      "typeClient": "pro",
+      "nom": "",
+      "prenom": "",
+      "entreprise": "BRASSERIE LA LIE",
+      "tel": "",
+      "email": "",
+      "vehicule": "E-Transit Custom",
+      "financement": "LOA",
+      "vehicules": [
+        {
+          "id": 1780653686832,
+          "modele": "E-Transit Custom",
+          "financement": "LOA",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": {
+        "vehicule": "PEUGEOT JUMPY",
+        "montant": "",
+        "note": "AUTO 1"
+      },
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": false,
+      "notes": [
+        {
+          "date": "2026-06-09",
+          "time": "09h07",
+          "text": "Pas de réponse / Messagerie 📵",
+          "auto": true
+        }
+      ],
+      "relances": [
+        {
+          "id": 241,
+          "date": "2026-06-08",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "Fait"
+        },
+        {
+          "id": 256,
+          "date": "2026-06-10",
+          "type": "Relance tél.",
+          "note": "Pas de réponse — rappel J+1",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 57,
+      "date": "2026-06-05",
+      "vendeur": "Mathis Dubreuil",
+      "client": "CHRISTIAN LEMOINE",
+      "typeClient": "part",
+      "nom": "LEMOINE",
+      "prenom": "CHRISTIAN",
+      "entreprise": "",
+      "tel": "",
+      "email": "",
+      "vehicule": "Kuga",
+      "financement": "Comptant",
+      "vehicules": [
+        {
+          "id": 1780673133623,
+          "modele": "Kuga",
+          "financement": "Comptant",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Prospection téléphonique",
+      "essai": false,
+      "notes": [],
+      "relances": [
+        {
+          "id": 242,
+          "date": "2026-06-08",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 58,
+      "date": "2026-06-09",
+      "vendeur": "Alexandre Nee",
+      "client": "SIMON CHATEL",
+      "typeClient": "part",
+      "nom": "CHATEL",
+      "prenom": "SIMON",
+      "entreprise": "",
+      "tel": "",
+      "email": "",
+      "vehicule": "Explorer",
+      "financement": "LLD",
+      "vehicules": [
+        {
+          "id": 1780988447889,
+          "modele": "Explorer",
+          "financement": "LLD",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": true,
+      "notes": [],
+      "relances": [],
+      "livraisonPrevue": "2026-06-23",
+      "postVente": {
+        "parVehicule": {
+          "1780988447889": {
+            "oneCare": null,
+            "montantFin": "31589",
+            "organismeFin": "Ford Lease",
+            "forfaitLivraison": true,
+            "assurances": 2
+          }
+        }
+      }
+    },
+    {
+      "id": 59,
+      "date": "2026-06-09",
+      "vendeur": "Alexandre Nee",
+      "client": "SEVIN ADÉLAIDE",
+      "typeClient": "part",
+      "nom": "ADÉLAIDE",
+      "prenom": "SEVIN",
+      "entreprise": "",
+      "tel": "",
+      "email": "",
+      "vehicule": "Puma",
+      "financement": "Comptant",
+      "vehicules": [
+        {
+          "id": 1780988537188,
+          "modele": "Puma",
+          "financement": "Comptant",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": true,
+      "notes": [],
+      "relances": [
+        {
+          "id": 246,
+          "date": "2026-06-12",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 60,
+      "date": "2026-06-09",
+      "vendeur": "Alexandre Nee",
+      "client": "MAHIEUX JULIEN",
+      "typeClient": "part",
+      "nom": "JULIEN",
+      "prenom": "MAHIEUX",
+      "entreprise": "",
+      "tel": "",
+      "email": "",
+      "vehicule": "Capri",
+      "financement": "LLD",
+      "vehicules": [
+        {
+          "id": 1780988588850,
+          "modele": "Capri",
+          "financement": "LLD",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Prospection téléphonique",
+      "essai": false,
+      "notes": [
+        {
+          "date": "2026-06-09",
+          "time": "09h04",
+          "text": "RDV showroom programmé 🏢",
+          "auto": true
+        }
+      ],
+      "relances": [
+        {
+          "id": 247,
+          "date": "2026-06-12",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "Fait"
+        },
+        {
+          "id": 248,
+          "date": "2026-06-14",
+          "type": "RDV Showroom",
+          "note": "🏬 Rendez-vous au showroom",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 61,
+      "date": "2026-06-09",
+      "vendeur": "Alexandre Nee",
+      "client": "TRAMBLAY MARTINEZ",
+      "typeClient": "part",
+      "nom": "MARTINEZ",
+      "prenom": "TRAMBLAY",
+      "entreprise": "",
+      "tel": "",
+      "email": "",
+      "vehicule": "Explorer",
+      "financement": "LLD",
+      "vehicules": [
+        {
+          "id": 1780988679850,
+          "modele": "Explorer",
+          "financement": "LLD",
+          "qty": 1
+        }
+      ],
+      "statut": "En cours",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": true,
+      "notes": [
+        {
+          "date": "2026-06-09",
+          "time": "09h05",
+          "text": "RDV showroom programmé 🏢",
+          "auto": true
+        }
+      ],
+      "relances": [
+        {
+          "id": 249,
+          "date": "2026-06-12",
+          "type": "Relance tél.",
+          "note": "",
+          "statut": "Fait"
+        },
+        {
+          "id": 250,
+          "date": "2026-06-13",
+          "type": "RDV Showroom",
+          "note": "🏬 Rendez-vous au showroom",
+          "statut": "À faire"
+        }
+      ]
+    },
+    {
+      "id": 62,
+      "date": "2026-06-09",
+      "vendeur": "Mathis Dubreuil",
+      "client": "GARY LALLEMAND",
+      "typeClient": "part",
+      "nom": "LALLEMAND",
+      "prenom": "GARY",
+      "entreprise": "",
+      "tel": "",
+      "email": "",
+      "vehicule": "Puma Gen-E",
+      "financement": "LLD",
+      "vehicules": [
+        {
+          "id": 1780988937208,
+          "modele": "Puma Gen-E",
+          "financement": "LLD",
+          "qty": 1
+        }
+      ],
+      "statut": "Vendu",
+      "commentaire": "",
+      "reprise": null,
+      "rdvType": "",
+      "rdvSource": "Passage",
+      "essai": true,
+      "notes": [],
+      "relances": [],
+      "livraisonPrevue": "2026-09-30",
+      "postVente": {
+        "parVehicule": {
+          "1780988937208": {
+            "oneCare": null,
+            "montantFin": "27000",
+            "organismeFin": "Ford Lease",
+            "forfaitLivraison": true,
+            "assurances": 2
+          }
+        }
+      }
+    }
+  ],
+  "nDId": 63,
+  "nRId": 258
+}
