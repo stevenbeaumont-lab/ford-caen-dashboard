@@ -478,10 +478,10 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_PASSWORD = 'ford2026';
 const VENDEUR_PASSWORD = 'sello';
 
-let supabase = null;
+let sb = null;
 try {
   if (window.supabase && window.supabase.createClient) {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   } else {
     console.error('Supabase non chargé');
   }
@@ -498,12 +498,12 @@ document.getElementById('loginRole').addEventListener('change', async (e) => {
   const grp = document.getElementById('vendeurSelectGroup');
   if (role === 'vendeur') {
     grp.style.display = 'block';
-    if (!supabase) {
+    if (!sb) {
       showError('Connexion à la base impossible — recharge la page');
       return;
     }
     try {
-      const { data, error } = await supabase.from('vendeurs').select('name').order('name');
+      const { data, error } = await sb.from('vendeurs').select('name').order('name');
       if (error) throw error;
       const select = document.getElementById('loginVendeur');
       select.innerHTML = '<option value="">— Sélectionner —</option>';
@@ -578,13 +578,13 @@ async function startApp() {
 }
 
 async function loadData() {
-  if (!supabase) throw new Error('Supabase non initialisé');
+  if (!sb) throw new Error('Supabase non initialisé');
   
   const [v, d, s, o] = await Promise.all([
-    supabase.from('vendeurs').select('*').order('name'),
-    supabase.from('deals').select('*').order('date', { ascending: false }),
-    supabase.from('stats_journalieres').select('*').order('date', { ascending: false }),
-    supabase.from('objectifs').select('*')
+    sb.from('vendeurs').select('*').order('name'),
+    sb.from('deals').select('*').order('date', { ascending: false }),
+    sb.from('stats_journalieres').select('*').order('date', { ascending: false }),
+    sb.from('objectifs').select('*')
   ]);
 
   if (v.error) console.error('Vendeurs:', v.error);
