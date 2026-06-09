@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sello Caen — Dashboard Ford</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -478,7 +478,16 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const ADMIN_PASSWORD = 'ford2026';
 const VENDEUR_PASSWORD = 'sello';
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let supabase = null;
+try {
+  if (window.supabase && window.supabase.createClient) {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  } else {
+    console.error('Supabase non chargé');
+  }
+} catch(e) {
+  console.error('Erreur init Supabase:', e);
+}
 
 let currentUser = null;
 let state = { vendeurs: [], deals: [], stats: [], objectifs: [] };
@@ -489,15 +498,25 @@ document.getElementById('loginRole').addEventListener('change', async (e) => {
   const grp = document.getElementById('vendeurSelectGroup');
   if (role === 'vendeur') {
     grp.style.display = 'block';
-    const { data } = await supabase.from('vendeurs').select('name').order('name');
-    const select = document.getElementById('loginVendeur');
-    select.innerHTML = '<option value="">— Sélectionner —</option>';
-    (data || []).forEach(v => {
-      const opt = document.createElement('option');
-      opt.value = v.name;
-      opt.textContent = v.name;
-      select.appendChild(opt);
-    });
+    if (!supabase) {
+      showError('Connexion à la base impossible — recharge la page');
+      return;
+    }
+    try {
+      const { data, error } = await supabase.from('vendeurs').select('name').order('name');
+      if (error) throw error;
+      const select = document.getElementById('loginVendeur');
+      select.innerHTML = '<option value="">— Sélectionner —</option>';
+      (data || []).forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v.name;
+        opt.textContent = v.name;
+        select.appendChild(opt);
+      });
+    } catch(err) {
+      console.error('Erreur chargement vendeurs:', err);
+      showError('Erreur de chargement des vendeurs');
+    }
   } else {
     grp.style.display = 'none';
   }
@@ -549,17 +568,29 @@ async function startApp() {
   document.getElementById('userName').textContent = currentUser.name;
   document.getElementById('userBadge').classList.toggle('admin', currentUser.role === 'admin');
   
-  await loadData();
-  render();
+  try {
+    await loadData();
+    render();
+  } catch(err) {
+    console.error('Erreur chargement:', err);
+    alert('Erreur de chargement des données: ' + err.message);
+  }
 }
 
 async function loadData() {
+  if (!supabase) throw new Error('Supabase non initialisé');
+  
   const [v, d, s, o] = await Promise.all([
     supabase.from('vendeurs').select('*').order('name'),
     supabase.from('deals').select('*').order('date', { ascending: false }),
     supabase.from('stats_journalieres').select('*').order('date', { ascending: false }),
     supabase.from('objectifs').select('*')
   ]);
+
+  if (v.error) console.error('Vendeurs:', v.error);
+  if (d.error) console.error('Deals:', d.error);
+  if (s.error) console.error('Stats:', s.error);
+  if (o.error) console.error('Objectifs:', o.error);
 
   state.vendeurs = v.data || [];
   state.deals = d.data || [];
