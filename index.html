@@ -738,12 +738,13 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
       'Content-Type': 'application/json',
       'Prefer': 'resolution=merge-duplicates,return=minimal'
     };
+    var hdrsDel = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY };
     
     var p1 = dealsPayload.length ? fetch(URL+'/rest/v1/deals?on_conflict=id', {
       method: 'POST', headers: hdrs, body: JSON.stringify(dealsPayload)
     }) : Promise.resolve();
     
-    // 2. UPSERT relances (chaque relance a un id TEXT)
+    // 2. UPSERT relances
     var allRel = [];
     deals.forEach(function(d){
       (d.relances || []).forEach(function(r){
@@ -763,7 +764,29 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
       method: 'POST', headers: hdrs, body: JSON.stringify(allRel)
     }) : Promise.resolve();
     
-    Promise.all([p1, p2]).then(function(){
+    // 3. DELETE: supprimer dans Supabase ce qui n'est plus en local
+    var localDealIds = deals.map(function(d){return d.id;});
+    var p3 = Promise.resolve();
+    if (localDealIds.length) {
+      p3 = fetch(URL+'/rest/v1/deals?id=not.in.('+localDealIds.join(',')+')', {
+        method: 'DELETE', headers: hdrsDel
+      });
+    }
+    
+    var localRelIds = allRel.map(function(r){return r.id;});
+    var p4 = Promise.resolve();
+    if (localRelIds.length) {
+      p4 = fetch(URL+'/rest/v1/relances?id=not.in.('+localRelIds.join(',')+')', {
+        method: 'DELETE', headers: hdrsDel
+      });
+    } else {
+      // Plus aucune relance en local → tout supprimer dans Supabase
+      p4 = fetch(URL+'/rest/v1/relances?id=not.is.null', {
+        method: 'DELETE', headers: hdrsDel
+      });
+    }
+    
+    Promise.all([p1, p2, p3, p4]).then(function(){
       console.log('☁️ Sync cloud OK ('+deals.length+' affaires, '+allRel.length+' relances)');
       pushing = false;
     }).catch(function(e){
@@ -774,6 +797,49 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
   
   // Push auto toutes les 5 secondes
   setInterval(autoPush, 5000);
+  
+  // ========== PULL périodique (toutes les 15 sec) - récupère modifs des autres ==========
+  function autoPull(){
+    if (pushing) return; // ne pas pull pendant un push
+    // Ne pull que si on a poussé récemment (= rien en attente d'envoi)
+    var cur = localStorage.getItem('fc_dl') || '';
+    if (cur !== lastHash) return; // modifs locales en attente, on push d'abord
+    
+    try {
+      var vendeurs = get('vendeurs?select=*&order=name');
+      if (!vendeurs.length) return;
+      var dealsRaw = get('deals?select=*');
+      var relances = get('relances?select=*');
+      
+      var relByDeal = {};
+      relances.forEach(function(r){
+        if (!relByDeal[r.deal_id]) relByDeal[r.deal_id] = [];
+        relByDeal[r.deal_id].push({id:r.id,date:r.date,type:r.type,statut:r.statut,commentaire:r.commentaire||'',vendeur:r.vendeur});
+      });
+      
+      var dealsArr = dealsRaw.map(function(d){return {id:d.id,date:d.date,vendeur:d.vendeur,client:d.client,vehicule:d.vehicule,financement:d.financement,statut:d.statut,commentaire:d.commentaire||'',relances:relByDeal[d.id]||[],notes:[],archived:d.archived||false,archivedDate:d.archived_date};});
+      var maxId = dealsArr.reduce(function(m,d){return Math.max(m,d.id||0);},0);
+      
+      // Préserver nDId actuel si plus grand
+      var existing;
+      try { existing = JSON.parse(localStorage.getItem('fc_dl') || '{}'); } catch(e){ existing = {}; }
+      var nDId = Math.max(maxId + 1, existing.nd || 0);
+      var nRId = existing.nr || 1;
+      
+      var newPayload = JSON.stringify({d:dealsArr,nd:nDId,nr:nRId});
+      
+      // Si les données ont changé, mettre à jour ET déclencher un re-render
+      if (newPayload !== cur) {
+        localStorage.setItem('fc_dl', newPayload);
+        lastHash = newPayload;
+        console.log('📥 Modifs détectées depuis le cloud — recharge en cours...');
+        // Recharger la page pour que le dashboard re-affiche
+        setTimeout(function(){ location.reload(); }, 500);
+      }
+    } catch(e) { console.error('Pull periodic error:', e); }
+  }
+  
+  setInterval(autoPull, 15000);
   
   // Aussi à la fermeture de la page (via sendBeacon, plus fiable)
   window.addEventListener('beforeunload', function(){
