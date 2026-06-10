@@ -4916,8 +4916,173 @@ function renderStats(){
 // BRIEF DU MATIN
 // ══════════════════════════════════════════════
 // ══════════════════════════════════════════════
+// 🏆 CLASSEMENT VENDEUR — Vue épurée pour les vendeurs (équipe)
+let _classementPeriode = 'month'; // 'month' | 'prevMonth' | 'year' | mois 'YYYY-MM'
+
+function renderVendeurClassement(){
+  const p = document.getElementById('p-brief');
+  if(!p) return;
+  
+  const today = new Date(curDate);
+  const curYear = today.getFullYear();
+  const curMonth = String(today.getMonth()+1).padStart(2,'0');
+  const curYM = curYear + '-' + curMonth;
+  
+  // Calcul du mois précédent
+  const prev = new Date(today);
+  prev.setMonth(prev.getMonth()-1);
+  const prevYM = prev.getFullYear() + '-' + String(prev.getMonth()+1).padStart(2,'0');
+  
+  // Filtrer les ventes selon la période
+  let filterFn, periodeLabel;
+  if (_classementPeriode === 'month') {
+    filterFn = d => d.date && d.date.startsWith(curYM) && d.statut === 'Vendu';
+    periodeLabel = '📅 ' + new Date(curYear, today.getMonth(), 1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  } else if (_classementPeriode === 'prevMonth') {
+    filterFn = d => d.date && d.date.startsWith(prevYM) && d.statut === 'Vendu';
+    periodeLabel = '📅 ' + new Date(prev.getFullYear(), prev.getMonth(), 1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  } else if (_classementPeriode === 'year') {
+    filterFn = d => d.date && d.date.startsWith(curYear+'') && d.statut === 'Vendu';
+    periodeLabel = '🗓️ Année ' + curYear;
+  } else {
+    // Mois spécifique 'YYYY-MM'
+    filterFn = d => d.date && d.date.startsWith(_classementPeriode) && d.statut === 'Vendu';
+    const [y,m] = _classementPeriode.split('-');
+    periodeLabel = '📅 ' + new Date(parseInt(y), parseInt(m)-1, 1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  }
+  
+  // Compter les ventes par vendeur
+  const stats = {};
+  V.forEach(name => stats[name] = 0);
+  deals.filter(filterFn).forEach(d => {
+    if (stats[d.vendeur] !== undefined) stats[d.vendeur]++;
+  });
+  
+  // Trier par ventes décroissantes
+  const ranked = Object.entries(stats)
+    .map(([name, ventes]) => ({name, ventes, color: getVendeurColor(name)}))
+    .sort((a,b) => b.ventes - a.ventes);
+  
+  const myName = window.FC_USER ? window.FC_USER.name : '';
+  const myRank = ranked.findIndex(v => v.name === myName) + 1;
+  const myVentes = ranked.find(v => v.name === myName)?.ventes || 0;
+  const totalEquipe = ranked.reduce((s,v) => s+v.ventes, 0);
+  const maxVentes = Math.max(...ranked.map(v => v.ventes), 1);
+  
+  // Génération des options de mois pour le sélecteur (12 derniers mois)
+  const moisOptions = [];
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(curYear, today.getMonth() - i, 1);
+    const ym = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    const label = d.toLocaleDateString('fr-FR', {month:'long', year:'numeric'});
+    moisOptions.push({ym, label});
+  }
+  
+  // Médailles pour top 3
+  const medals = ['🥇', '🥈', '🥉'];
+  
+  const html = `
+    <div style="max-width:900px;margin:0 auto;padding:0 16px;">
+      <!-- Header -->
+      <div style="text-align:center;margin-bottom:24px;">
+        <h2 style="font-size:28px;font-weight:800;margin:0 0 8px;background:linear-gradient(135deg,#003078,#0066cc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">🏆 Classement de l'équipe</h2>
+        <div style="font-size:13px;color:var(--txt2);">${periodeLabel}</div>
+      </div>
+      
+      <!-- Sélecteur de période -->
+      <div style="background:var(--card);border:1px solid var(--brd);border-radius:14px;padding:14px;margin-bottom:20px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+        <span style="font-size:12px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.04em;margin-right:8px;">Période :</span>
+        <button onclick="setClassementPeriode('month')" style="padding:8px 14px;border-radius:99px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:${_classementPeriode==='month'?'linear-gradient(135deg,#003078,#0066cc)':'var(--card2)'};color:${_classementPeriode==='month'?'#fff':'var(--txt2)'};">Mois en cours</button>
+        <button onclick="setClassementPeriode('prevMonth')" style="padding:8px 14px;border-radius:99px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:${_classementPeriode==='prevMonth'?'linear-gradient(135deg,#003078,#0066cc)':'var(--card2)'};color:${_classementPeriode==='prevMonth'?'#fff':'var(--txt2)'};">Mois précédent</button>
+        <button onclick="setClassementPeriode('year')" style="padding:8px 14px;border-radius:99px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:${_classementPeriode==='year'?'linear-gradient(135deg,#003078,#0066cc)':'var(--card2)'};color:${_classementPeriode==='year'?'#fff':'var(--txt2)'};">Année ${curYear}</button>
+        <select onchange="setClassementPeriode(this.value)" style="padding:8px 12px;border-radius:99px;border:1px solid var(--brd);background:var(--card2);color:var(--txt2);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">
+          <option value="">Autre mois...</option>
+          ${moisOptions.map(o => `<option value="${o.ym}" ${o.ym===_classementPeriode?'selected':''}>${o.label}</option>`).join('')}
+        </select>
+      </div>
+      
+      <!-- Ma position (carte mise en avant) -->
+      ${myName ? `
+      <div style="background:linear-gradient(135deg,rgba(0,48,120,.08),rgba(0,102,204,.08));border:2px solid #0066cc;border-radius:18px;padding:20px;margin-bottom:24px;display:grid;grid-template-columns:auto 1fr auto;gap:20px;align-items:center;">
+        <div style="font-size:48px;font-weight:800;color:#0066cc;line-height:1;min-width:60px;text-align:center;">
+          ${myRank <= 3 ? medals[myRank-1] : '#'+myRank}
+        </div>
+        <div>
+          <div style="font-size:12px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:4px;">Ma position</div>
+          <div style="font-size:20px;font-weight:700;color:var(--txt);">${myName}</div>
+          <div style="font-size:13px;color:var(--txt2);margin-top:4px;">${totalEquipe > 0 ? Math.round(myVentes/totalEquipe*100) : 0}% des ventes de l'équipe</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:36px;font-weight:800;line-height:1;background:linear-gradient(135deg,#003078,#0066cc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">${myVentes}</div>
+          <div style="font-size:12px;color:var(--txt2);font-weight:600;">vente${myVentes>1?'s':''}</div>
+        </div>
+      </div>
+      ` : ''}
+      
+      <!-- Classement complet -->
+      <div style="background:var(--card);border:1px solid var(--brd);border-radius:16px;overflow:hidden;">
+        <div style="padding:14px 20px;border-bottom:1px solid var(--brd);font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--txt2);">
+          📊 Classement complet de l'équipe
+        </div>
+        ${ranked.map((v,i) => `
+          <div style="display:grid;grid-template-columns:50px 1fr auto;gap:16px;padding:16px 20px;align-items:center;border-bottom:1px solid var(--brd);${v.name===myName?'background:rgba(0,102,204,.05);':''}">
+            <div style="font-size:${i<3?'28px':'18px'};font-weight:800;text-align:center;color:${i<3?'inherit':'var(--txt2)'};">
+              ${i < 3 ? medals[i] : '#'+(i+1)}
+            </div>
+            <div>
+              <div style="font-size:15px;font-weight:${v.name===myName?'700':'600'};color:var(--txt);margin-bottom:6px;">
+                ${v.name}${v.name===myName?' <span style="font-size:11px;color:#0066cc;background:rgba(0,102,204,.15);padding:2px 8px;border-radius:99px;margin-left:6px;font-weight:600;">VOUS</span>':''}
+              </div>
+              <div style="background:var(--card2);height:8px;border-radius:99px;overflow:hidden;">
+                <div style="background:${v.color};height:100%;width:${maxVentes > 0 ? (v.ventes/maxVentes*100) : 0}%;border-radius:99px;transition:width .5s;"></div>
+              </div>
+            </div>
+            <div style="text-align:right;min-width:80px;">
+              <div style="font-size:24px;font-weight:800;color:var(--txt);line-height:1;">${v.ventes}</div>
+              <div style="font-size:11px;color:var(--txt2);font-weight:600;">${v.ventes>1?'ventes':'vente'}</div>
+            </div>
+          </div>
+        `).join('')}
+        ${ranked.length === 0 ? '<div style="padding:40px;text-align:center;color:var(--txt2);">Aucune vente sur cette période</div>' : ''}
+      </div>
+      
+      <!-- Stats globales -->
+      <div style="margin-top:24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;">
+        <div style="background:var(--card);border:1px solid var(--brd);border-radius:14px;padding:18px;text-align:center;">
+          <div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:6px;">Total équipe</div>
+          <div style="font-size:32px;font-weight:800;color:var(--txt);">${totalEquipe}</div>
+          <div style="font-size:12px;color:var(--txt2);">ventes</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--brd);border-radius:14px;padding:18px;text-align:center;">
+          <div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:6px;">Moyenne / vendeur</div>
+          <div style="font-size:32px;font-weight:800;color:var(--txt);">${ranked.length > 0 ? Math.round(totalEquipe/ranked.length*10)/10 : 0}</div>
+          <div style="font-size:12px;color:var(--txt2);">ventes</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--brd);border-radius:14px;padding:18px;text-align:center;">
+          <div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:6px;">Meilleur score</div>
+          <div style="font-size:32px;font-weight:800;color:var(--txt);">${ranked[0]?.ventes || 0}</div>
+          <div style="font-size:12px;color:var(--txt2);">par ${ranked[0]?.name || '—'}</div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  p.innerHTML = html;
+}
+
+function setClassementPeriode(p){
+  if(!p) return;
+  _classementPeriode = p;
+  renderVendeurClassement();
+}
+
 function renderBrief(){
   const p=document.getElementById('p-brief');if(!p)return;
+  
+  // 🔐 Vendeur en vue Équipe : afficher uniquement le classement épuré
+  if (window.FC_USER && window.FC_USER.role === 'vendeur' && selV === TEAM_IDX) {
+    return renderVendeurClassement();
+  }
 
   const today=curDate;
   const yesterday=new Date(today);yesterday.setDate(yesterday.getDate()-1);
