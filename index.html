@@ -1113,8 +1113,11 @@ function fcSetVendeurType(name, type){
     localStorage.setItem('fc_cfg', JSON.stringify(CFG));
     localStorage.setItem('fc_v', JSON.stringify({V:V,CFG:CFG}));
   } catch(e){}
+  if(typeof _buildVMaps==='function') _buildVMaps();
   fcPushVendeursToSupabase();
   fcOpenLinksModal();
+  if(typeof renderVcards==='function') renderVcards();
+  if(typeof render==='function') render();
   if(typeof showToastMsg==='function') showToastMsg('✓ '+name+' : '+(type==='pro'?'Société':'Particulier'), 'var(--grn,#10b981)');
 }
 
@@ -1127,8 +1130,11 @@ function fcSetVendeurAlternant(name, isAlt){
     localStorage.setItem('fc_cfg', JSON.stringify(CFG));
     localStorage.setItem('fc_v', JSON.stringify({V:V,CFG:CFG}));
   } catch(e){}
+  if(typeof _buildVMaps==='function') _buildVMaps();
   fcPushVendeursToSupabase();
   fcOpenLinksModal();
+  if(typeof renderVcards==='function') renderVcards();
+  if(typeof render==='function') render();
   if(typeof showToastMsg==='function') showToastMsg('✓ '+name+(isAlt?' devient alternant':' n\'est plus alternant'), 'var(--grn,#10b981)');
 }
 
@@ -1142,15 +1148,14 @@ function fcToggleLink(vendeurName, linkedName, isChecked){
   } else {
     v.voitAussi = v.voitAussi.filter(n => n !== linkedName);
   }
-  // Sauvegarder localement + push Supabase
   try {
     localStorage.setItem('fc_cfg', JSON.stringify(CFG));
     localStorage.setItem('fc_v', JSON.stringify({V:V,CFG:CFG}));
   } catch(e){}
-  // Push vers Supabase
+  if(typeof _buildVMaps==='function') _buildVMaps();
   fcPushVendeursToSupabase();
-  // Refresh modale
   fcOpenLinksModal();
+  if(typeof renderVcards==='function') renderVcards();
   if(typeof showToastMsg==='function') showToastMsg('✓ Liaison '+(isChecked?'activée':'retirée'), 'var(--grn,#10b981)');
 }
 
@@ -1510,9 +1515,11 @@ function setVendeurType(vi,t){
   if(!vc){vc={name:name};CFG.vendeurs.push(vc);}
   vc.typeClient=t;
   saveConfig();
+  if(typeof _buildVMaps==='function') _buildVMaps();
   // 🔄 Sync immédiat vers Supabase
   if(typeof fcPushVendeursToSupabase==='function') fcPushVendeursToSupabase();
   renderSettings();
+  if(typeof renderVcards==='function') renderVcards();
 }
 
 function setVendeurAlternant(vi, isAlt){
@@ -1521,8 +1528,10 @@ function setVendeurAlternant(vi, isAlt){
   if(!vc){vc={name:name};CFG.vendeurs.push(vc);}
   vc.alternant = !!isAlt;
   saveConfig();
+  if(typeof _buildVMaps==='function') _buildVMaps();
   if(typeof fcPushVendeursToSupabase==='function') fcPushVendeursToSupabase();
   renderSettings();
+  if(typeof renderVcards==='function') renderVcards();
 }
 
 function getVendeurAlternant(name){var cfg=vConfig(name);return !!(cfg&&cfg.alternant);}
