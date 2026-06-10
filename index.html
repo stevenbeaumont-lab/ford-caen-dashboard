@@ -2675,6 +2675,11 @@ function renderVcards(){
     var td=allRel().filter(function(r){return r.vendeur===name&&r.statut===TODO&&r.date===curDate;}).length;
     return {name:name,vi:vi,ur:ur,td:td};
   }).sort(function(a,b){return a.name.localeCompare(b.name,'fr',{sensitivity:'base'});});
+  
+  // 🔐 Vendeur : ne voir que soi-même dans la sidebar
+  if(window.FC_USER && window.FC_USER.role==='vendeur'){
+    vendList = vendList.filter(function(it){return it.name===window.FC_USER.name;});
+  }
 
   // Découpe en 2 groupes selon le type vendeur (société / particulier)
   var listSociete=vendList.filter(function(it){return getVendeurTypeClient(it.name)==='pro';});
@@ -3449,6 +3454,20 @@ function renderRel(){
   });
 }
 function switchTab(t){
+  // 🔐 Vendeur : blocage onglet réglages et KPI
+  if(window.FC_USER && window.FC_USER.role==='vendeur' && ['cfg','kpi'].includes(t)){
+    if(typeof showToastMsg==='function') showToastMsg('🔒 Accès réservé administrateur','var(--red)');
+    return;
+  }
+  // 🔐 Vendeur : autorise UNIQUEMENT brief en vue Équipe (classement) ; sinon force retour sur son profil
+  if(window.FC_USER && window.FC_USER.role==='vendeur' && selV===TEAM_IDX && t!=='brief'){
+    var myIdxV = V.indexOf(window.FC_USER.name);
+    if(myIdxV >= 0){
+      selV = myIdxV;
+      gFlt = window.FC_USER.name;
+      renderVcards();
+    }
+  }
   // Si on tente d'aller sur Dashboard avec l'équipe sélectionnée → premier vendeur + message
   if(t==='dash' && selV===TEAM_IDX && V && V.length>0){
     selV=0;
@@ -6620,6 +6639,17 @@ function cfgCopyNextMonth(){
   load();
   selV=TEAM_IDX;tab='brief';gFlt='tous';rFlt='pending';relSort='urgence';dealSort=CFG.defaultSort||'urgence';
   restoreSession(); // restore last vendor + tab
+  
+  // 🔐 Vendeur connecté : forcer la vue sur son propre profil + Affaires
+  if (window.FC_USER && window.FC_USER.role === 'vendeur') {
+    var myIdxInit = V.indexOf(window.FC_USER.name);
+    if (myIdxInit >= 0) {
+      selV = myIdxInit;
+      gFlt = window.FC_USER.name;
+      if (['cfg','kpi'].includes(tab)) tab = 'aff';
+    }
+  }
+  
   // Restore dark mode preference
   try{if(localStorage.getItem('fc_dark')){isDark=true;document.body.classList.add('dark');document.getElementById('theme-btn').textContent='☀️';}}catch(e){}
   curDate=new Date().toISOString().slice(0,10);
@@ -6878,6 +6908,11 @@ let _currentDealId=null;
 
 function openDealDetail(id){
   const d=deals.find(x=>x.id===id);if(!d)return;
+  // 🔐 Vendeur : interdiction de voir les affaires des autres
+  if(window.FC_USER && window.FC_USER.role==='vendeur' && d.vendeur!==window.FC_USER.name){
+    if(typeof showToastMsg==='function') showToastMsg('🔒 Cette affaire n\'est pas la vôtre','var(--red)');
+    return;
+  }
   _currentDealId=id;
   const modal=document.getElementById('deal-detail-modal');
   if(!modal)return;
