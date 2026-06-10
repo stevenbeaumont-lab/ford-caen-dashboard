@@ -1509,8 +1509,23 @@ function setVendeurType(vi,t){
   var vc=CFG.vendeurs.find(function(v){return v.name===name||v.nom===name;});
   if(!vc){vc={name:name};CFG.vendeurs.push(vc);}
   vc.typeClient=t;
-  saveConfig();renderSettings();
+  saveConfig();
+  // 🔄 Sync immédiat vers Supabase
+  if(typeof fcPushVendeursToSupabase==='function') fcPushVendeursToSupabase();
+  renderSettings();
 }
+
+function setVendeurAlternant(vi, isAlt){
+  var name=V[vi];if(!name)return;
+  var vc=CFG.vendeurs.find(function(v){return v.name===name||v.nom===name;});
+  if(!vc){vc={name:name};CFG.vendeurs.push(vc);}
+  vc.alternant = !!isAlt;
+  saveConfig();
+  if(typeof fcPushVendeursToSupabase==='function') fcPushVendeursToSupabase();
+  renderSettings();
+}
+
+function getVendeurAlternant(name){var cfg=vConfig(name);return !!(cfg&&cfg.alternant);}
 // Réinitialise les types de chaque vendeur selon la répartition d'origine Ford Caen
 // (Anthony, Tom, Thao : société / autres : particulier)
 function resetVendorTypes(){
@@ -7044,13 +7059,17 @@ function renderSettings(){
       var initials=name.split(' ').map(function(w){return w[0]||'';}).join('').slice(0,2).toUpperCase();
       var vc=vConfig(name);var repos=(vc&&vc.repos?vc.repos:[]).join(', ');
       var tc=getVendeurTypeClient(name);
-      h+='<div style="display:flex;align-items:center;gap:11px;padding:9px 12px;background:var(--card2);border-radius:10px;">'
+      var isAlt=getVendeurAlternant(name);
+      h+='<div style="display:flex;align-items:center;gap:11px;padding:9px 12px;background:var(--card2);border-radius:10px;flex-wrap:wrap;">'
         +'<div style="width:30px;height:30px;border-radius:8px;background:'+col+';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;">'+initials+'</div>'
-        +'<span style="flex:1;font-size:13px;color:var(--txt);">'+name+'</span>'
+        +'<span style="flex:1;min-width:120px;font-size:13px;color:var(--txt);">'+name+(isAlt?' <span style="font-size:10px;background:rgba(245,158,11,.15);color:#d97706;padding:2px 7px;border-radius:99px;font-weight:700;margin-left:4px;">🎓 ALTERNANT</span>':'')+'</span>'
         +'<div style="display:flex;gap:0;background:var(--card);border:1px solid var(--brd);border-radius:7px;padding:2px;">'
         +'<button onclick="setVendeurType('+vi+',\'part\')" style="padding:4px 11px;border-radius:5px;border:none;background:'+(tc==='part'?'var(--ford)':'transparent')+';color:'+(tc==='part'?'#fff':'var(--txt2)')+';font-size:11px;font-weight:'+(tc==='part'?'600':'500')+';cursor:pointer;font-family:inherit;">\uD83D\uDC64 Particulier</button>'
-        +'<button onclick="setVendeurType('+vi+',\'pro\')" style="padding:4px 11px;border-radius:5px;border:none;background:'+(tc==='pro'?'var(--ford)':'transparent')+';color:'+(tc==='pro'?'#fff':'var(--txt2)')+';font-size:11px;font-weight:'+(tc==='pro'?'600':'500')+';cursor:pointer;font-family:inherit;">\uD83C\uDFE2 Soci\u00e9t\u00e9</button>'
+        +'<button onclick="setVendeurType('+vi+',\'pro\')" style="padding:4px 11px;border-radius:5px;border:none;background:'+(tc==='pro'?'var(--ford)':'transparent')+';color:'+(tc==='pro'?'#fff':'var(--txt2)')+';font-size:11px;font-weight:'+(tc==='pro'?'600':'500')+';cursor:pointer;font-family:inherit;">\uD83C\uDFE2 Société</button>'
         +'</div>'
+        +'<label style="display:inline-flex;align-items:center;gap:6px;padding:4px 11px;background:'+(isAlt?'rgba(245,158,11,.15)':'var(--card)')+';border:1px solid '+(isAlt?'#f59e0b':'var(--brd)')+';border-radius:7px;cursor:pointer;font-size:11px;font-weight:600;color:'+(isAlt?'#d97706':'var(--txt2)')+';font-family:inherit;">'
+        +'<input type="checkbox" '+(isAlt?'checked':'')+' onchange="setVendeurAlternant('+vi+',this.checked)" style="margin:0;cursor:pointer;accent-color:#f59e0b;">'
+        +'🎓 Alternant</label>'
         +'<input id="cfg-rep-'+vi+'" value="'+repos+'" placeholder="Dim, Sam…" style="width:130px;font-size:12px;" onchange="saveSettings()"></div>';
     });
     h+='</div></div>';
