@@ -649,9 +649,16 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
-<!-- 🔄 SYNC SUPABASE → LOCALSTORAGE (avant init dashboard) -->
+<!-- 🔄 SYNC SUPABASE → LOCALSTORAGE (seulement si pas de données locales) -->
 <script>
 (function fcSupabaseSync(){
+  // 🛡️ PROTECTION : ne JAMAIS écraser les données locales existantes
+  // Le sync ne se fait QU'à la première utilisation (localStorage vide)
+  if (localStorage.getItem('fc_dl')) {
+    console.log('ℹ️ Données locales détectées — sync Supabase ignorée pour préserver tes modifications (relances, notes, etc.)');
+    return;
+  }
+  
   var SUPABASE_URL = 'https://xhedsjsnurmjtgdsaiwf.supabase.co';
   var ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhoZWRzanNudXJtanRnZHNhaXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjgzNjYsImV4cCI6MjA5NjYwNDM2Nn0.L0nLTKwzH2tjjUsIDZ-9w90Xs3YFXaVhxTu5fHZea0s';
   
@@ -677,9 +684,7 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
     var stats = syncCall('stats_journalieres?select=*');
     var objectifs = syncCall('objectifs?select=*');
     
-    // CFG.vendeurs
     var CFG = {};
-    try { CFG = JSON.parse(localStorage.getItem('fc_cfg') || '{}'); } catch(e){ CFG = {}; }
     CFG.vendeurs = vendeurs.map(function(v){
       return {
         name: v.name,
@@ -689,17 +694,14 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
         typeClient: v.type_client || 'particulier'
       };
     });
-    // Objectifs mensuels
-    CFG.objVendeur = CFG.objVendeur || {};
+    CFG.objVendeur = {};
     objectifs.forEach(function(o){
       if (!CFG.objVendeur[o.vendeur]) CFG.objVendeur[o.vendeur] = {};
       CFG.objVendeur[o.vendeur][o.mois] = o.objectif;
     });
     
-    // V = noms des vendeurs
     var V = CFG.vendeurs.map(function(v){return v.name;});
     
-    // DB = stats indexées par "vendeurIdx:date"
     var DB = {};
     stats.forEach(function(s){
       var idx = V.indexOf(s.vendeur);
@@ -716,7 +718,6 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
       }
     });
     
-    // deals = array
     var dealsArr = dealsRaw.map(function(d){
       return {
         id: d.id,
@@ -735,14 +736,12 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
     });
     var maxId = dealsArr.reduce(function(m,d){return Math.max(m, d.id||0);}, 0);
     
-    // Save to localStorage (format attendu par le dashboard)
     localStorage.setItem('fc_cfg', JSON.stringify(CFG));
     localStorage.setItem('fc_v', JSON.stringify({V: V, CFG: CFG}));
     localStorage.setItem('fc_db', JSON.stringify(DB));
     localStorage.setItem('fc_dl', JSON.stringify({d: dealsArr, nd: maxId + 1, nr: 1}));
-    localStorage.setItem('fc_last_sync', String(Date.now()));
     
-    console.log('✅ Sync Supabase OK: ' + V.length + ' vendeurs, ' + dealsArr.length + ' affaires, ' + Object.keys(DB).length + ' jours de stats');
+    console.log('✅ Premier chargement : ' + V.length + ' vendeurs, ' + dealsArr.length + ' affaires importés depuis Supabase');
   } catch(e) {
     console.error('❌ Erreur sync Supabase:', e);
   }
