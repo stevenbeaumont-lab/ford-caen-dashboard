@@ -676,7 +676,7 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
           rdvSources:['Appel entrant','Recommandation','Prospection téléphonique','Leap','UpYourLeads','Atelier','Client existant','Passage','Autres'],
           relanceTypes:['Relance tél.','RDV Showroom','RDV Essai','Email','SMS','WhatsApp','Autre']
         };
-        CFG.vendeurs = vendeurs.map(function(v){return {name:v.name,color:v.color||'#003078',objectif:v.objectif||18,restDays:v.rest_days||[],typeClient:v.type_client||'part',voitAussi:v.voit_aussi||[]};});
+        CFG.vendeurs = vendeurs.map(function(v){return {name:v.name,color:v.color||'#003078',objectif:v.objectif||18,restDays:v.rest_days||[],typeClient:v.type_client||'part',alternant:!!v.alternant,voitAussi:v.voit_aussi||[]};});
         objectifs.forEach(function(o){if(!CFG.objVendeur[o.vendeur])CFG.objVendeur[o.vendeur]={};CFG.objVendeur[o.vendeur][o.mois]=o.objectif;});
         var V = CFG.vendeurs.map(function(v){return v.name;});
         
@@ -1005,7 +1005,7 @@ function fcLogout(){
   }
 }
 
-// ===== 🤝 GESTION DES LIENS ENTRE VENDEURS (admin uniquement) =====
+// ===== 🤝 GESTION DES VENDEURS (admin uniquement) =====
 function fcOpenLinksModal(){
   if(!window.FC_USER || window.FC_USER.role !== 'admin') return;
   const cfg = (typeof CFG !== 'undefined') ? CFG : (JSON.parse(localStorage.getItem('fc_cfg')||'{}'));
@@ -1019,40 +1019,66 @@ function fcOpenLinksModal(){
   m.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);font-family:system-ui,-apple-system,sans-serif;';
   
   m.innerHTML = `
-    <div style="background:var(--bg,#fff);color:var(--txt,#111);border-radius:18px;padding:24px;max-width:600px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 25px 80px rgba(0,0,0,.4);">
+    <div style="background:var(--bg,#fff);color:var(--txt,#111);border-radius:18px;padding:24px;max-width:700px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:0 25px 80px rgba(0,0,0,.4);">
       <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:18px;">
         <div>
-          <h2 style="margin:0 0 4px;font-size:22px;font-weight:800;">🤝 Liaisons vendeurs</h2>
-          <div style="font-size:13px;color:var(--txt2,#666);">Configure quels vendeurs chacun peut voir en plus de lui-même</div>
+          <h2 style="margin:0 0 4px;font-size:22px;font-weight:800;">👥 Gestion des vendeurs</h2>
+          <div style="font-size:13px;color:var(--txt2,#666);">Fonction, statut alternant et liaisons entre vendeurs</div>
         </div>
         <button onclick="document.getElementById('fc-links-modal').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--txt2,#666);padding:0;line-height:1;">✕</button>
       </div>
       
       <div style="background:rgba(0,102,204,.08);border:1px solid rgba(0,102,204,.2);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--txt2,#666);margin-bottom:18px;">
-        💡 <b>Exemple :</b> coche "Thao Leroyer" dans la fiche d'Anthony → Anthony verra ses affaires <b>+ celles de Thao</b>. C'est unilatéral : tu peux faire l'inverse séparément.
+        💡 <b>Liaisons :</b> coche les vendeurs qu'un vendeur peut voir <b>en plus</b> de lui-même (ex: Anthony voit Thao son alternant). Sauvegarde automatique vers le cloud.
       </div>
       
       <div id="fc-links-list">
         ${vendeurs.map(v => {
           const others = vendeurs.filter(o => o.name !== v.name);
           const links = v.voitAussi || [];
+          const fonction = (v.typeClient === 'pro' ? 'Société' : 'Particulier') + (v.alternant ? ' · Alternant' : '');
           return `
-            <div style="background:var(--card,rgba(0,0,0,.03));border:1px solid var(--brd,rgba(0,0,0,.1));border-radius:12px;padding:14px 16px;margin-bottom:10px;">
-              <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-                <div style="width:10px;height:10px;border-radius:50%;background:${v.color};"></div>
+            <div style="background:var(--card,rgba(0,0,0,.03));border:1px solid var(--brd,rgba(0,0,0,.1));border-radius:14px;padding:16px;margin-bottom:12px;">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+                <div style="width:12px;height:12px;border-radius:50%;background:${v.color};flex-shrink:0;"></div>
                 <strong style="font-size:15px;">${v.name}</strong>
+                <span style="font-size:11px;padding:3px 10px;border-radius:99px;background:${v.alternant?'rgba(245,158,11,.15)':(v.typeClient==='pro'?'rgba(139,92,246,.15)':'rgba(0,102,204,.15)')};color:${v.alternant?'#d97706':(v.typeClient==='pro'?'#8b5cf6':'#0066cc')};font-weight:700;">${fonction}</span>
                 <span style="font-size:11px;color:var(--txt2,#666);background:var(--card2,rgba(0,0,0,.05));padding:2px 8px;border-radius:99px;margin-left:auto;">
-                  ${links.length === 0 ? 'aucun lien' : 'voit aussi ' + links.length + ' vendeur' + (links.length>1?'s':'')}
+                  ${links.length === 0 ? 'aucun lien' : '↔ ' + links.length}
                 </span>
               </div>
-              <div style="display:flex;flex-wrap:wrap;gap:6px;">
-                ${others.map(o => {
-                  const isLinked = links.includes(o.name);
-                  return `<label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:${isLinked?'rgba(0,102,204,.15)':'var(--card2,rgba(0,0,0,.04))'};border:1px solid ${isLinked?'#0066cc':'var(--brd,rgba(0,0,0,.1))'};border-radius:99px;cursor:pointer;font-size:12px;font-weight:600;color:${isLinked?'#0066cc':'var(--txt,#111)'};">
-                    <input type="checkbox" ${isLinked?'checked':''} onchange="fcToggleLink('${v.name}','${o.name}',this.checked)" style="margin:0;cursor:pointer;">
-                    ${o.name}
-                  </label>`;
-                }).join('')}
+              
+              <!-- Fonction du vendeur -->
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px dashed var(--brd,rgba(0,0,0,.1));">
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                  <label style="font-size:11px;font-weight:700;color:var(--txt2,#666);text-transform:uppercase;letter-spacing:.06em;">Type de clientèle</label>
+                  <select onchange="fcSetVendeurType('${v.name}', this.value)" style="padding:7px 12px;border-radius:8px;border:1px solid var(--brd,rgba(0,0,0,.15));background:var(--card2,#fff);color:var(--txt,#111);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">
+                    <option value="part" ${v.typeClient==='part'?'selected':''}>👤 Vendeur particulier</option>
+                    <option value="pro" ${v.typeClient==='pro'?'selected':''}>🏢 Vendeur société</option>
+                  </select>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                  <label style="font-size:11px;font-weight:700;color:var(--txt2,#666);text-transform:uppercase;letter-spacing:.06em;">Statut</label>
+                  <label style="display:inline-flex;align-items:center;gap:8px;padding:7px 14px;background:${v.alternant?'rgba(245,158,11,.12)':'var(--card2,rgba(0,0,0,.04))'};border:1px solid ${v.alternant?'#f59e0b':'var(--brd,rgba(0,0,0,.15))'};border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:${v.alternant?'#d97706':'var(--txt,#111)'};">
+                    <input type="checkbox" ${v.alternant?'checked':''} onchange="fcSetVendeurAlternant('${v.name}', this.checked)" style="margin:0;cursor:pointer;">
+                    🎓 Alternant
+                  </label>
+                </div>
+              </div>
+              
+              <!-- Liaisons -->
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--txt2,#666);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:8px;">Peut aussi voir les affaires de</label>
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                  ${others.map(o => {
+                    const isLinked = links.includes(o.name);
+                    return `<label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:${isLinked?'rgba(0,102,204,.15)':'var(--card2,rgba(0,0,0,.04))'};border:1px solid ${isLinked?'#0066cc':'var(--brd,rgba(0,0,0,.1))'};border-radius:99px;cursor:pointer;font-size:12px;font-weight:600;color:${isLinked?'#0066cc':'var(--txt,#111)'};">
+                      <input type="checkbox" ${isLinked?'checked':''} onchange="fcToggleLink('${v.name}','${o.name}',this.checked)" style="margin:0;cursor:pointer;">
+                      ${o.name}${o.alternant?' 🎓':''}
+                    </label>`;
+                  }).join('')}
+                  ${others.length === 0 ? '<span style="font-size:12px;color:var(--txt2,#666);">Aucun autre vendeur</span>' : ''}
+                </div>
               </div>
             </div>
           `;
@@ -1060,11 +1086,39 @@ function fcOpenLinksModal(){
       </div>
       
       <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--brd,rgba(0,0,0,.1));display:flex;gap:10px;justify-content:flex-end;">
-        <button onclick="document.getElementById('fc-links-modal').remove()" style="padding:10px 20px;background:var(--card2,rgba(0,0,0,.05));border:1px solid var(--brd,rgba(0,0,0,.1));border-radius:10px;cursor:pointer;font-size:14px;font-weight:600;color:var(--txt,#111);">Fermer</button>
+        <button onclick="document.getElementById('fc-links-modal').remove()" style="padding:10px 20px;background:linear-gradient(135deg,#003078,#0066cc);border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:700;color:#fff;">Fermer</button>
       </div>
     </div>
   `;
   document.body.appendChild(m);
+}
+
+function fcSetVendeurType(name, type){
+  if(!CFG || !CFG.vendeurs) return;
+  const v = CFG.vendeurs.find(x => x.name === name);
+  if(!v) return;
+  v.typeClient = type;
+  try {
+    localStorage.setItem('fc_cfg', JSON.stringify(CFG));
+    localStorage.setItem('fc_v', JSON.stringify({V:V,CFG:CFG}));
+  } catch(e){}
+  fcPushVendeursToSupabase();
+  fcOpenLinksModal();
+  if(typeof showToastMsg==='function') showToastMsg('✓ '+name+' : '+(type==='pro'?'Société':'Particulier'), 'var(--grn,#10b981)');
+}
+
+function fcSetVendeurAlternant(name, isAlt){
+  if(!CFG || !CFG.vendeurs) return;
+  const v = CFG.vendeurs.find(x => x.name === name);
+  if(!v) return;
+  v.alternant = isAlt;
+  try {
+    localStorage.setItem('fc_cfg', JSON.stringify(CFG));
+    localStorage.setItem('fc_v', JSON.stringify({V:V,CFG:CFG}));
+  } catch(e){}
+  fcPushVendeursToSupabase();
+  fcOpenLinksModal();
+  if(typeof showToastMsg==='function') showToastMsg('✓ '+name+(isAlt?' devient alternant':' n\'est plus alternant'), 'var(--grn,#10b981)');
 }
 
 function fcToggleLink(vendeurName, linkedName, isChecked){
@@ -1104,7 +1158,13 @@ function fcPushVendeursToSupabase(){
         'Content-Type': 'application/json',
         'Prefer': 'return=minimal'
       },
-      body: JSON.stringify({ voit_aussi: v.voitAussi || [] })
+      body: JSON.stringify({ 
+        voit_aussi: v.voitAussi || [],
+        type_client: v.typeClient || 'part',
+        alternant: !!v.alternant,
+        color: v.color || '#003078',
+        objectif: v.objectif || 18
+      })
     }).catch(function(e){ console.error('Push vendeur error:', e); });
   });
   console.log('☁️ Liaisons vendeurs synchronisées vers Supabase');
