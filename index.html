@@ -797,7 +797,7 @@ window.addEventListener('load',function(){
 </aside>
 
 <div class="main-wrap">
-  <div class="main-head"><button class="sb-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">&#9776;</button><span class="head-ctx" id="active-v"></span><span id="days-left" style="display:none;font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;"></span><span id="banner-urg-n" class="head-bdg" style="display:none;"></span></div>
+  <div class="main-head"><button class="sb-toggle" onclick="document.getElementById('sidebar').classList.toggle('collapsed')">&#9776;</button><span class="head-ctx" id="active-v"></span><span id="days-left" style="display:none;font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;"></span><span id="banner-urg-n" class="head-bdg" style="display:none;"></span><span id="fc-user-info" style="margin-left:auto;display:flex;align-items:center;gap:8px;"><span id="fc-user-name" style="font-size:12px;font-weight:600;color:var(--txt2);padding:5px 10px;background:var(--card2);border:1px solid var(--brd);border-radius:99px;display:inline-flex;align-items:center;gap:6px;"><span style="width:7px;height:7px;border-radius:50%;background:var(--grn);box-shadow:0 0 8px var(--grn);"></span><span id="fc-user-label">—</span></span><button onclick="fcLogout()" title="Se déconnecter" style="display:inline-flex;align-items:center;gap:5px;padding:6px 11px;background:var(--card2);border:1px solid var(--brd);border-radius:8px;color:var(--red);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;" onmouseover="this.style.background='var(--red-bg)';this.style.borderColor='var(--red-brd)';" onmouseout="this.style.background='var(--card2)';this.style.borderColor='var(--brd)';"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Déconnexion</button></span></div>
   <div class="tabs-row">
     <button class="tab-btn active" id="t-brief" onclick="switchTab('brief')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>Brief <span id="tb-brief" class="tbadge red" style="display:none;"></span></button>
     <button class="tab-btn" id="t-dash" onclick="switchTab('dash')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Dashboard</button>
@@ -2403,6 +2403,8 @@ function renderVcards(){
   eDiv.onclick=function(){
     selV=TEAM_IDX;gFlt='tous';searchQ='';showArchive=false;
     if(tab==='kpi'||tab==='dash')tab='brief';
+    // 🔐 Vendeur : force brief (classement uniquement)
+    if(window.FC_USER && window.FC_USER.role==='vendeur') tab='brief';
     updateGlobalFilterBar();
     if(typeof saveSession==='function')saveSession();
     switchTab(tab);
@@ -2414,6 +2416,11 @@ function renderVcards(){
     var td=allRel().filter(function(r){return r.vendeur===name&&r.statut===TODO&&r.date===curDate;}).length;
     return {name:name,vi:vi,ur:ur,td:td};
   }).sort(function(a,b){return a.name.localeCompare(b.name,'fr',{sensitivity:'base'});});
+  
+  // 🔐 Filtre vendeur : ne voir que soi-même
+  if(window.FC_USER && window.FC_USER.role==='vendeur'){
+    vendList = vendList.filter(function(it){return it.name===window.FC_USER.name;});
+  }
 
   // Découpe en 2 groupes selon le type vendeur (société / particulier)
   var listSociete=vendList.filter(function(it){return getVendeurTypeClient(it.name)==='pro';});
@@ -3188,6 +3195,15 @@ function renderRel(){
   });
 }
 function switchTab(t){
+  // 🔐 Vendeur : seul brief autorisé en vue Équipe ; sinon force retour sur son profil
+  if(window.FC_USER && window.FC_USER.role==='vendeur' && selV===TEAM_IDX && t!=='brief'){
+    var myIdx2 = V.indexOf(window.FC_USER.name);
+    if(myIdx2 >= 0){
+      selV = myIdx2;
+      gFlt = window.FC_USER.name;
+      renderVcards();
+    }
+  }
   // Si on tente d'aller sur Dashboard avec l'équipe sélectionnée → premier vendeur + message
   if(t==='dash' && selV===TEAM_IDX && V && V.length>0){
     selV=0;
@@ -6369,6 +6385,13 @@ function cfgCopyNextMonth(){
       tab = 'aff';
     }
   }
+  // 🔐 Afficher nom utilisateur dans le header
+  try {
+    if (window.FC_USER) {
+      var lbl = document.getElementById('fc-user-label');
+      if (lbl) lbl.textContent = window.FC_USER.role === 'admin' ? '👑 ' + window.FC_USER.name : window.FC_USER.name;
+    }
+  } catch(e){}
   // Restore dark mode preference
   try{if(localStorage.getItem('fc_dark')){isDark=true;document.body.classList.add('dark');document.getElementById('theme-btn').textContent='☀️';}}catch(e){}
   curDate=new Date().toISOString().slice(0,10);
