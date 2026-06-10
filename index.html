@@ -5493,6 +5493,19 @@ function renderVendeurClassement(){
         ${ranked.length === 0 ? '<div style="padding:50px;text-align:center;color:var(--txt2);">Aucune donnée sur cette période</div>' : ''}
       </div>
       
+      <!-- 📈 Graphique d'évolution -->
+      <div class="fc-card" style="background:var(--card);border:1px solid var(--brd);border-radius:18px;padding:24px;margin-bottom:24px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2);margin-bottom:4px;">📈 Évolution des ventes</div>
+            <div style="font-size:11px;color:var(--txt2);">Ventes cumulées jour par jour sur la période</div>
+          </div>
+        </div>
+        <div id="fc-chart-container" style="position:relative;height:280px;">
+          <canvas id="fc-evolution-chart"></canvas>
+        </div>
+      </div>
+      
       <!-- Synthèse équipe -->
       <div class="fc-card" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:20px;">
         <div style="background:linear-gradient(135deg,rgba(0,102,204,.08),rgba(0,102,204,.03));border:1px solid rgba(0,102,204,.2);border-radius:16px;padding:20px;">
@@ -5528,6 +5541,107 @@ function renderVendeurClassement(){
   `;
   
   p.innerHTML = html;
+  
+  // 📈 Génération du graphique d'évolution SVG
+  setTimeout(function(){
+    try {
+      const cont = document.getElementById('fc-chart-container');
+      if(!cont) return;
+      
+      // Déterminer plage de dates
+      let startDate, endDate;
+      if(_classementPeriode === 'year'){
+        startDate = new Date(curYear, 0, 1);
+        endDate = new Date(curYear, 11, 31);
+      } else if(periodeYM){
+        const [y,m] = periodeYM.split('-').map(Number);
+        startDate = new Date(y, m-1, 1);
+        endDate = new Date(y, m, 0);
+      } else { return; }
+      
+      const today2 = new Date(curDate);
+      if(endDate > today2) endDate = today2;
+      
+      // Compter ventes par jour (cumulées par vendeur)
+      const dayCount = (endDate - startDate) / 86400000 + 1;
+      const days = [];
+      for(let i=0; i<dayCount; i++){
+        const d = new Date(startDate);
+        d.setDate(d.getDate()+i);
+        days.push(d.toISOString().slice(0,10));
+      }
+      
+      // Top 5 vendeurs + moi
+      const topNames = ranked.slice(0, 5).map(r => r.name);
+      if(myName && !topNames.includes(myName)) topNames.push(myName);
+      
+      // Pour chaque vendeur, calculer le cumul jour par jour
+      const series = topNames.map(name => {
+        let cum = 0;
+        const points = days.map(day => {
+          const dayVentes = deals.filter(d => d.date === day && d.vendeur === name && d.statut === 'Vendu').length;
+          cum += dayVentes;
+          return cum;
+        });
+        return { name, points, color: vColor(name) };
+      });
+      
+      // SVG render
+      const W = cont.clientWidth || 800;
+      const H = 280;
+      const pad = { l: 35, r: 20, t: 15, b: 35 };
+      const maxY = Math.max(1, ...series.flatMap(s => s.points));
+      const xStep = (W - pad.l - pad.r) / Math.max(1, dayCount - 1);
+      
+      function xPos(i){ return pad.l + i * xStep; }
+      function yPos(v){ return H - pad.b - (v / maxY) * (H - pad.t - pad.b); }
+      
+      // Lignes horizontales (grille)
+      let svg = `<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="display:block;">`;
+      const ySteps = Math.min(5, maxY);
+      for(let i=0; i<=ySteps; i++){
+        const v = Math.round(maxY * i / ySteps);
+        const y = yPos(v);
+        svg += `<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="var(--brd)" stroke-width="0.5"/>`;
+        svg += `<text x="${pad.l-6}" y="${y+4}" fill="var(--txt2)" font-size="10" text-anchor="end" font-family="system-ui">${v}</text>`;
+      }
+      
+      // Lignes verticales (dates clés)
+      const xSteps = Math.min(6, dayCount-1);
+      for(let i=0; i<=xSteps; i++){
+        const idx = Math.round((dayCount-1) * i / xSteps);
+        const x = xPos(idx);
+        const d = new Date(days[idx]);
+        const lbl = d.toLocaleDateString('fr-FR', {day:'numeric', month:'short'});
+        svg += `<text x="${x}" y="${H-pad.b+15}" fill="var(--txt2)" font-size="10" text-anchor="middle" font-family="system-ui">${lbl}</text>`;
+      }
+      
+      // Tracer chaque série
+      series.forEach(s => {
+        const isMe = s.name === myName;
+        const path = s.points.map((v,i) => (i===0?'M':'L')+xPos(i)+','+yPos(v)).join(' ');
+        svg += `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="${isMe?3:2}" stroke-linecap="round" stroke-linejoin="round" opacity="${isMe?1:0.65}"/>`;
+        // Dernier point en grand
+        const lastIdx = s.points.length-1;
+        const lastV = s.points[lastIdx];
+        svg += `<circle cx="${xPos(lastIdx)}" cy="${yPos(lastV)}" r="${isMe?5:3.5}" fill="${s.color}" stroke="var(--bg)" stroke-width="2"/>`;
+      });
+      
+      svg += '</svg>';
+      
+      // Légende
+      let leg = '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;font-size:11px;">';
+      series.forEach(s => {
+        const isMe = s.name === myName;
+        leg += `<span style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;background:${isMe?'rgba(0,102,204,.1)':'var(--card2)'};border-radius:99px;font-weight:${isMe?'700':'600'};color:var(--txt2);">
+          <span style="width:10px;height:10px;background:${s.color};border-radius:50%;"></span>${s.name}${isMe?' (vous)':''} : ${s.points[s.points.length-1]}
+        </span>`;
+      });
+      leg += '</div>';
+      
+      cont.innerHTML = svg + leg;
+    } catch(e) { console.error('Chart error:', e); }
+  }, 100);
 }
 
 function setClassementPeriode(p){
