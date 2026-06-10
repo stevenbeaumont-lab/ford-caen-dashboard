@@ -676,7 +676,7 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
           rdvSources:['Appel entrant','Recommandation','Prospection téléphonique','Leap','UpYourLeads','Atelier','Client existant','Passage','Autres'],
           relanceTypes:['Relance tél.','RDV Showroom','RDV Essai','Email','SMS','WhatsApp','Autre']
         };
-        CFG.vendeurs = vendeurs.map(function(v){return {name:v.name,color:v.color||'#003078',objectif:v.objectif||18,restDays:v.rest_days||[],typeClient:v.type_client||'part',alternant:!!v.alternant,voitAussi:v.voit_aussi||[]};});
+        CFG.vendeurs = vendeurs.map(function(v){return {name:v.name,color:v.color||'#003078',objectif:v.objectif||18,restDays:v.rest_days||[],typeClient:v.type_client||'part',alternant:!!v.alternant,voitAussi:v.voit_aussi||[],password:v.password||'sello'};});
         objectifs.forEach(function(o){if(!CFG.objVendeur[o.vendeur])CFG.objVendeur[o.vendeur]={};CFG.objVendeur[o.vendeur][o.mois]=o.objectif;});
         var V = CFG.vendeurs.map(function(v){return v.name;});
         
@@ -990,9 +990,20 @@ body.is-vendeur button[onclick*="delDeal"] { display:none !important; }
     if (!p) return showErr('Saisis le code');
     var user = null;
     if (role==='admin' && p===ADMIN_PWD) user = {role:'admin',name:'Steven'};
-    else if (role==='vendeur' && p===VENDEUR_PWD) {
+    else if (role==='vendeur') {
       if (!vSel.value) return showErr('Sélectionne un vendeur');
-      user = {role:'vendeur',name:vSel.value};
+      // Récupérer le mot de passe individuel du vendeur depuis CFG
+      var vendorPwd = VENDEUR_PWD; // fallback ancien mdp partagé
+      try {
+        var cfg = JSON.parse(localStorage.getItem('fc_cfg')||'{}');
+        var venduPersonal = (cfg.vendeurs||[]).find(function(x){return x.name===vSel.value;});
+        if (venduPersonal && venduPersonal.password) vendorPwd = venduPersonal.password;
+      } catch(e){}
+      if (p === vendorPwd) {
+        user = {role:'vendeur',name:vSel.value};
+      } else {
+        return showErr('Code incorrect pour ce vendeur');
+      }
     } else return showErr('Code incorrect');
     try { localStorage.setItem('fc_user', JSON.stringify(user)); } catch(e){}
     window.FC_USER = user;
@@ -1076,6 +1087,13 @@ function fcOpenLinksModal(){
                     🎓 Alternant
                   </label>
                 </div>
+                <div style="display:flex;flex-direction:column;gap:6px;flex:1;min-width:180px;">
+                  <label style="font-size:11px;font-weight:700;color:var(--txt2,#666);text-transform:uppercase;letter-spacing:.06em;">🔑 Mot de passe</label>
+                  <div style="display:flex;gap:6px;">
+                    <input type="text" value="${v.password||'sello'}" id="fc-pwd-${v.name.replace(/\s/g,'_')}" placeholder="Mot de passe" style="flex:1;padding:7px 12px;border-radius:8px;border:1px solid var(--brd,rgba(0,0,0,.15));background:var(--card2,#fff);color:var(--txt,#111);font-size:13px;font-weight:600;font-family:inherit;">
+                    <button onclick="fcSetVendeurPassword('${v.name}', document.getElementById('fc-pwd-${v.name.replace(/\s/g,'_')}').value)" style="padding:7px 14px;background:linear-gradient(135deg,#003078,#0066cc);border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">💾 OK</button>
+                  </div>
+                </div>
               </div>
               
               <!-- Liaisons -->
@@ -1139,6 +1157,23 @@ function fcSetVendeurAlternant(name, isAlt){
   if(typeof showToastMsg==='function') showToastMsg('✓ '+name+(isAlt?' devient alternant':' n\'est plus alternant'), 'var(--grn,#10b981)');
 }
 
+function fcSetVendeurPassword(name, newPassword){
+  if(!CFG || !CFG.vendeurs) return;
+  if(!newPassword || newPassword.length < 3){
+    if(typeof showToastMsg==='function') showToastMsg('Mot de passe trop court (3 caractères min)', 'var(--red)');
+    return;
+  }
+  const v = CFG.vendeurs.find(x => x.name === name);
+  if(!v) return;
+  v.password = newPassword;
+  try {
+    localStorage.setItem('fc_cfg', JSON.stringify(CFG));
+    localStorage.setItem('fc_v', JSON.stringify({V:V,CFG:CFG}));
+  } catch(e){}
+  fcPushVendeursToSupabase();
+  if(typeof showToastMsg==='function') showToastMsg('✓ Mot de passe de '+name+' mis à jour', 'var(--grn,#10b981)');
+}
+
 function fcToggleLink(vendeurName, linkedName, isChecked){
   if(!CFG || !CFG.vendeurs) return;
   const v = CFG.vendeurs.find(x => x.name === vendeurName);
@@ -1180,7 +1215,8 @@ function fcPushVendeursToSupabase(){
         type_client: v.typeClient || 'part',
         alternant: !!v.alternant,
         color: v.color || '#003078',
-        objectif: v.objectif || 18
+        objectif: v.objectif || 18,
+        password: v.password || 'sello'
       })
     }).catch(function(e){ console.error('Push vendeur error:', e); });
   });
