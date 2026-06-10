@@ -649,102 +649,256 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
-<!-- 🔄 SYNC SUPABASE → LOCALSTORAGE (seulement si pas de données locales) -->
+<!-- 🔄 SUPABASE SYNC 2-SENS -->
 <script>
-(function fcSupabaseSync(){
-  // 🛡️ PROTECTION : ne JAMAIS écraser les données locales existantes
-  // Le sync ne se fait QU'à la première utilisation (localStorage vide)
-  if (localStorage.getItem('fc_dl')) {
-    console.log('ℹ️ Données locales détectées — sync Supabase ignorée pour préserver tes modifications (relances, notes, etc.)');
-    return;
+window.FC_SUPABASE = (function(){
+  var URL = 'https://xhedsjsnurmjtgdsaiwf.supabase.co';
+  var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhoZWRzanNudXJtanRnZHNhaXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjgzNjYsImV4cCI6MjA5NjYwNDM2Nn0.L0nLTKwzH2tjjUsIDZ-9w90Xs3YFXaVhxTu5fHZea0s';
+  
+  function headers(extra){
+    var h = {
+      'apikey': KEY,
+      'Authorization': 'Bearer ' + KEY,
+      'Content-Type': 'application/json'
+    };
+    if (extra) for (var k in extra) h[k] = extra[k];
+    return h;
   }
   
-  var SUPABASE_URL = 'https://xhedsjsnurmjtgdsaiwf.supabase.co';
-  var ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhoZWRzanNudXJtanRnZHNhaXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjgzNjYsImV4cCI6MjA5NjYwNDM2Nn0.L0nLTKwzH2tjjUsIDZ-9w90Xs3YFXaVhxTu5fHZea0s';
-  
-  function syncCall(endpoint) {
+  // ============ PULL: chargement initial synchrone ============
+  function syncGET(endpoint){
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', SUPABASE_URL + '/rest/v1/' + endpoint, false);
-    xhr.setRequestHeader('apikey', ANON_KEY);
-    xhr.setRequestHeader('Authorization', 'Bearer ' + ANON_KEY);
+    xhr.open('GET', URL + '/rest/v1/' + endpoint, false);
+    xhr.setRequestHeader('apikey', KEY);
+    xhr.setRequestHeader('Authorization', 'Bearer ' + KEY);
     try {
       xhr.send();
       if (xhr.status === 200) return JSON.parse(xhr.responseText);
-    } catch(e) { console.error('Sync error:', e); }
+    } catch(e) { console.error('GET error:', endpoint, e); }
     return [];
   }
   
-  try {
-    var vendeurs = syncCall('vendeurs?select=*&order=name');
-    if (!vendeurs.length) {
-      console.warn('Sync Supabase : aucun vendeur reçu');
+  function pullInitial(){
+    try {
+      var vendeurs = syncGET('vendeurs?select=*&order=name');
+      if (!vendeurs.length) {
+        console.warn('Supabase vide — utilisation des données locales si présentes');
+        return;
+      }
+      var dealsRaw = syncGET('deals?select=*');
+      var stats = syncGET('stats_journalieres?select=*');
+      var objectifs = syncGET('objectifs?select=*');
+      var relances = syncGET('relances?select=*');
+      
+      var CFG = {};
+      CFG.vendeurs = vendeurs.map(function(v){
+        return {
+          name: v.name,
+          color: v.color || '#003078',
+          objectif: v.objectif || 18,
+          restDays: v.rest_days || [],
+          typeClient: v.type_client || 'particulier'
+        };
+      });
+      CFG.objVendeur = {};
+      objectifs.forEach(function(o){
+        if (!CFG.objVendeur[o.vendeur]) CFG.objVendeur[o.vendeur] = {};
+        CFG.objVendeur[o.vendeur][o.mois] = o.objectif;
+      });
+      
+      var V = CFG.vendeurs.map(function(v){return v.name;});
+      
+      var DB = {};
+      stats.forEach(function(s){
+        var idx = V.indexOf(s.vendeur);
+        if (idx >= 0) {
+          DB[idx + ':' + s.date] = {
+            ventes: s.ventes || 0,
+            appels: s.appels || 0,
+            essais: s.essais || 0,
+            livraisons: s.livraisons || 0,
+            crm: s.crm || 0,
+            noreply: s.noreply || 0
+          };
+        }
+      });
+      
+      // Grouper les relances par deal_id
+      var relancesByDeal = {};
+      relances.forEach(function(r){
+        if (!relancesByDeal[r.deal_id]) relancesByDeal[r.deal_id] = [];
+        relancesByDeal[r.deal_id].push({
+          id: r.id,
+          date: r.date,
+          type: r.type,
+          statut: r.statut,
+          commentaire: r.commentaire || '',
+          vendeur: r.vendeur
+        });
+      });
+      
+      var dealsArr = dealsRaw.map(function(d){
+        return {
+          id: d.id,
+          date: d.date,
+          vendeur: d.vendeur,
+          client: d.client,
+          vehicule: d.vehicule,
+          financement: d.financement,
+          statut: d.statut,
+          commentaire: d.commentaire || '',
+          relances: relancesByDeal[d.id] || [],
+          notes: [],
+          archived: d.archived || false,
+          archivedDate: d.archived_date
+        };
+      });
+      var maxId = dealsArr.reduce(function(m,d){return Math.max(m, d.id||0);}, 0);
+      
+      localStorage.setItem('fc_cfg', JSON.stringify(CFG));
+      localStorage.setItem('fc_v', JSON.stringify({V: V, CFG: CFG}));
+      localStorage.setItem('fc_db', JSON.stringify(DB));
+      localStorage.setItem('fc_dl', JSON.stringify({d: dealsArr, nd: maxId + 1, nr: 1}));
+      
+      console.log('✅ Sync Supabase: ' + V.length + ' vendeurs, ' + dealsArr.length + ' affaires, ' + relances.length + ' relances');
+    } catch(e) {
+      console.error('Erreur pull initial:', e);
+    }
+  }
+  
+  // ============ PUSH: sauvegarde vers Supabase (debounced 1.5s) ============
+  var pushTimer = null;
+  var pushing = false;
+  
+  function pushDebounced(){
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(doPush, 1500);
+  }
+  
+  function doPush(){
+    if (pushing) {
+      // Re-essayer après le push en cours
+      setTimeout(doPush, 500);
       return;
     }
-    var dealsRaw = syncCall('deals?select=*');
-    var stats = syncCall('stats_journalieres?select=*');
-    var objectifs = syncCall('objectifs?select=*');
+    pushing = true;
     
-    var CFG = {};
-    CFG.vendeurs = vendeurs.map(function(v){
-      return {
-        name: v.name,
-        color: v.color || '#003078',
-        objectif: v.objectif || 18,
-        restDays: v.rest_days || [],
-        typeClient: v.type_client || 'particulier'
-      };
-    });
-    CFG.objVendeur = {};
-    objectifs.forEach(function(o){
-      if (!CFG.objVendeur[o.vendeur]) CFG.objVendeur[o.vendeur] = {};
-      CFG.objVendeur[o.vendeur][o.mois] = o.objectif;
-    });
-    
-    var V = CFG.vendeurs.map(function(v){return v.name;});
-    
-    var DB = {};
-    stats.forEach(function(s){
-      var idx = V.indexOf(s.vendeur);
-      if (idx >= 0) {
-        var key = idx + ':' + s.date;
-        DB[key] = {
-          ventes: s.ventes || 0,
-          appels: s.appels || 0,
-          essais: s.essais || 0,
-          livraisons: s.livraisons || 0,
-          crm: s.crm || 0,
-          noreply: s.noreply || 0
+    try {
+      var dlRaw = JSON.parse(localStorage.getItem('fc_dl') || '{"d":[]}');
+      var deals = dlRaw.d || [];
+      var dbRaw = JSON.parse(localStorage.getItem('fc_db') || '{}');
+      var cfgRaw = JSON.parse(localStorage.getItem('fc_cfg') || '{}');
+      var V = (cfgRaw.vendeurs || []).map(function(v){return v.name;});
+      
+      // 1. Upsert deals
+      var dealsPayload = deals.map(function(d){
+        return {
+          id: d.id,
+          date: d.date || null,
+          vendeur: d.vendeur || null,
+          client: d.client || null,
+          vehicule: d.vehicule || null,
+          financement: d.financement || null,
+          statut: d.statut || null,
+          commentaire: d.commentaire || '',
+          archived: !!d.archived,
+          archived_date: d.archivedDate || null
         };
-      }
-    });
-    
-    var dealsArr = dealsRaw.map(function(d){
-      return {
-        id: d.id,
-        date: d.date,
-        vendeur: d.vendeur,
-        client: d.client,
-        vehicule: d.vehicule,
-        financement: d.financement,
-        statut: d.statut,
-        commentaire: d.commentaire || '',
-        relances: [],
-        notes: [],
-        archived: d.archived || false,
-        archivedDate: d.archived_date
-      };
-    });
-    var maxId = dealsArr.reduce(function(m,d){return Math.max(m, d.id||0);}, 0);
-    
-    localStorage.setItem('fc_cfg', JSON.stringify(CFG));
-    localStorage.setItem('fc_v', JSON.stringify({V: V, CFG: CFG}));
-    localStorage.setItem('fc_db', JSON.stringify(DB));
-    localStorage.setItem('fc_dl', JSON.stringify({d: dealsArr, nd: maxId + 1, nr: 1}));
-    
-    console.log('✅ Premier chargement : ' + V.length + ' vendeurs, ' + dealsArr.length + ' affaires importés depuis Supabase');
-  } catch(e) {
-    console.error('❌ Erreur sync Supabase:', e);
+      });
+      
+      var pDeals = dealsPayload.length ? fetch(URL + '/rest/v1/deals?on_conflict=id', {
+        method: 'POST',
+        headers: headers({'Prefer': 'resolution=merge-duplicates,return=minimal'}),
+        body: JSON.stringify(dealsPayload)
+      }) : Promise.resolve();
+      
+      // 2. Sync relances (delete all + insert all = simple et fiable)
+      var allRelances = [];
+      deals.forEach(function(d){
+        (d.relances || []).forEach(function(r){
+          allRelances.push({
+            id: r.id ? String(r.id) : (d.id + '_' + Math.random().toString(36).slice(2, 10)),
+            deal_id: d.id,
+            date: r.date || null,
+            type: r.type || null,
+            statut: r.statut || null,
+            commentaire: r.commentaire || '',
+            vendeur: d.vendeur || null
+          });
+        });
+      });
+      
+      var pRelances = fetch(URL + '/rest/v1/relances?id=neq.__none__', {
+        method: 'DELETE',
+        headers: headers()
+      }).then(function(){
+        if (!allRelances.length) return;
+        return fetch(URL + '/rest/v1/relances', {
+          method: 'POST',
+          headers: headers({'Prefer': 'return=minimal'}),
+          body: JSON.stringify(allRelances)
+        });
+      });
+      
+      // 3. Stats journalières
+      var statsPayload = [];
+      Object.keys(dbRaw).forEach(function(k){
+        var parts = k.split(':');
+        if (parts.length === 2) {
+          var idx = parseInt(parts[0]);
+          var date = parts[1];
+          var vendeur = V[idx];
+          var s = dbRaw[k];
+          if (vendeur && s) {
+            statsPayload.push({
+              vendeur: vendeur,
+              date: date,
+              ventes: s.ventes || 0,
+              appels: s.appels || 0,
+              essais: s.essais || 0,
+              livraisons: s.livraisons || 0,
+              crm: s.crm || 0,
+              noreply: s.noreply || 0
+            });
+          }
+        }
+      });
+      
+      // Pour les stats : delete all + insert all (clé composite vendeur+date)
+      var pStats = fetch(URL + '/rest/v1/stats_journalieres?id=gte.0', {
+        method: 'DELETE',
+        headers: headers()
+      }).then(function(){
+        if (!statsPayload.length) return;
+        return fetch(URL + '/rest/v1/stats_journalieres', {
+          method: 'POST',
+          headers: headers({'Prefer': 'return=minimal'}),
+          body: JSON.stringify(statsPayload)
+        });
+      });
+      
+      Promise.all([pDeals, pRelances, pStats]).then(function(){
+        console.log('☁️ Push Supabase OK');
+        pushing = false;
+        // Indicateur visuel
+        var t = document.getElementById('fc-cloud-status');
+        if (t) { t.textContent = '☁️ Synchronisé'; t.style.color = 'var(--grn)'; setTimeout(function(){if(t)t.textContent='';},2000); }
+      }).catch(function(e){
+        console.error('Push error:', e);
+        pushing = false;
+        var t = document.getElementById('fc-cloud-status');
+        if (t) { t.textContent = '⚠️ Sync échouée'; t.style.color = 'var(--red)'; }
+      });
+    } catch(e) {
+      console.error('doPush error:', e);
+      pushing = false;
+    }
   }
+  
+  // ============ DÉMARRAGE: pull initial ============
+  pullInitial();
+  
+  return { pushDebounced: pushDebounced, pullInitial: pullInitial, doPush: doPush };
 })();
 </script>
 
@@ -7878,6 +8032,25 @@ function fcLogout(){
     location.reload();
   }
 }
+
+// 🔄 Wrapper save() pour déclencher le push Supabase
+(function wrapSaveForCloud(){
+  var attempts = 0;
+  function tryWrap(){
+    if (typeof window.save === 'function' && window.FC_SUPABASE) {
+      var origSave = window.save;
+      window.save = function(){
+        var result = origSave.apply(this, arguments);
+        try { window.FC_SUPABASE.pushDebounced(); } catch(e){ console.error(e); }
+        return result;
+      };
+      console.log('☁️ Wrapper Supabase activé sur save()');
+    } else if (attempts++ < 20) {
+      setTimeout(tryWrap, 200);
+    }
+  }
+  tryWrap();
+})();
 </script>
 </body>
 </html>
