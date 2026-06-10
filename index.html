@@ -4960,7 +4960,7 @@ function renderVendeurClassement(){
   
   // Trier par ventes décroissantes
   const ranked = Object.entries(stats)
-    .map(([name, ventes]) => ({name, ventes, color: getVendeurColor(name)}))
+    .map(([name, ventes]) => ({name, ventes, color: vColor(name)}))
     .sort((a,b) => b.ventes - a.ventes);
   
   const myName = window.FC_USER ? window.FC_USER.name : '';
