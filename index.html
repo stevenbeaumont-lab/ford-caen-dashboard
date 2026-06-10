@@ -3507,7 +3507,7 @@ function updateTabVisibility(){
   // Brief : équipe seulement
   const briefBtn=document.getElementById('t-brief');
   if(briefBtn)briefBtn.style.display=isTeam?'':'none';
-  // Stats + Cfg : équipe seulement
+  // Stats + Cfg : équipe seulement (mais Cfg jamais pour vendeur, Stats jamais en team vendeur)
   ['stats','cfg'].forEach(x=>{
     const el=document.getElementById('t-'+x);if(el)el.style.display=isTeam?'':'none';
   });
@@ -3517,9 +3517,16 @@ function updateTabVisibility(){
   // KPI : toujours caché (accessible via Dashboard)
   const kpiBtn=document.getElementById('t-kpi');
   if(kpiBtn)kpiBtn.style.display='none';
-  // 🔐 Vendeur en vue Équipe : cacher Affaires, Relances, Agenda, Calendrier, Kanban, Stats
+  
+  // Reset des onglets profil (au cas où ils auraient été cachés)
+  ['aff','rel','agenda','cal','kanban'].forEach(x=>{
+    const el=document.getElementById('t-'+x);
+    if(el) el.style.display = isTeam ? 'none' : ''; // visibles sur profil, cachés en team
+  });
+  
+  // 🔐 Vendeur en vue Équipe : ne garder QUE le Brief (Classement) visible
   if(isVendeur && isTeam){
-    ['aff','rel','agenda','cal','kanban','stats','cfg'].forEach(x=>{
+    ['aff','rel','agenda','cal','kanban','stats','cfg','dash','kpi'].forEach(x=>{
       const el=document.getElementById('t-'+x);if(el)el.style.display='none';
     });
   }
