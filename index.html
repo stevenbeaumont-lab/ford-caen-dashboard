@@ -795,13 +795,12 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
     });
   }
   
-  // Push auto toutes les 5 secondes
-  setInterval(autoPush, 5000);
+  // Push auto toutes les 1 seconde (quasi-instantané)
+  setInterval(autoPush, 1000);
   
-  // ========== PULL périodique (toutes les 15 sec) - récupère modifs des autres ==========
+  // ========== PULL périodique (toutes les 30 sec) - backup au cas où Realtime fail ==========
   function autoPull(){
     if (pushing) return; // ne pas pull pendant un push
-    // Ne pull que si on a poussé récemment (= rien en attente d'envoi)
     var cur = localStorage.getItem('fc_dl') || '';
     if (cur !== lastHash) return; // modifs locales en attente, on push d'abord
     
@@ -820,7 +819,6 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
       var dealsArr = dealsRaw.map(function(d){return {id:d.id,date:d.date,vendeur:d.vendeur,client:d.client,vehicule:d.vehicule,financement:d.financement,statut:d.statut,commentaire:d.commentaire||'',relances:relByDeal[d.id]||[],notes:[],archived:d.archived||false,archivedDate:d.archived_date};});
       var maxId = dealsArr.reduce(function(m,d){return Math.max(m,d.id||0);},0);
       
-      // Préserver nDId actuel si plus grand
       var existing;
       try { existing = JSON.parse(localStorage.getItem('fc_dl') || '{}'); } catch(e){ existing = {}; }
       var nDId = Math.max(maxId + 1, existing.nd || 0);
@@ -828,18 +826,47 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
       
       var newPayload = JSON.stringify({d:dealsArr,nd:nDId,nr:nRId});
       
-      // Si les données ont changé, mettre à jour ET déclencher un re-render
       if (newPayload !== cur) {
         localStorage.setItem('fc_dl', newPayload);
         lastHash = newPayload;
-        console.log('📥 Modifs détectées depuis le cloud — recharge en cours...');
-        // Recharger la page pour que le dashboard re-affiche
-        setTimeout(function(){ location.reload(); }, 500);
+        console.log('📥 Modifs détectées depuis le cloud — rechargement...');
+        setTimeout(function(){ location.reload(); }, 300);
       }
-    } catch(e) { console.error('Pull periodic error:', e); }
+    } catch(e) { console.error('Pull error:', e); }
   }
   
-  setInterval(autoPull, 15000);
+  setInterval(autoPull, 30000); // backup pull toutes les 30 sec
+  
+  // ========== REALTIME via WebSocket (instantané) ==========
+  var script = document.createElement('script');
+  script.src = 'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js';
+  script.onload = function() {
+    try {
+      if (!window.supabase || !window.supabase.createClient) {
+        console.warn('Supabase JS non chargé');
+        return;
+      }
+      var client = window.supabase.createClient(URL, KEY);
+      
+      client.channel('fc-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, function(){
+          console.log('📡 Realtime deals → pull');
+          autoPull();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'relances' }, function(){
+          console.log('📡 Realtime relances → pull');
+          autoPull();
+        })
+        .subscribe(function(status){
+          if (status === 'SUBSCRIBED') {
+            console.log('⚡ Realtime activé : changements instantanés');
+          }
+        });
+    } catch(e) {
+      console.error('Realtime init error:', e);
+    }
+  };
+  document.head.appendChild(script);
   
   // Aussi à la fermeture de la page (via sendBeacon, plus fiable)
   window.addEventListener('beforeunload', function(){
