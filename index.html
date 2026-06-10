@@ -859,6 +859,10 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
 <style>
 @keyframes splashLogo{0%{opacity:0;transform:scale(.85);}100%{opacity:1;transform:scale(1);}}
 @keyframes splashBar{0%{transform:translateX(-100%);}100%{transform:translateX(100%);}}
+/* 🔐 Vendeur : cacher fonctions admin */
+body.is-vendeur #t-cfg,
+body.is-vendeur #t-kpi { display:none !important; }
+body.is-vendeur .sb-foot button[onclick="resetAll()"] { display:none !important; }
 </style>
 <script>
 window.addEventListener('load',function(){
@@ -2503,8 +2507,8 @@ function renderVcards(){
   eDiv.onclick=function(){
     selV=TEAM_IDX;gFlt='tous';searchQ='';showArchive=false;
     if(tab==='kpi'||tab==='dash')tab='brief';
-    // 🔐 Vendeur : force brief (classement uniquement)
-    if(window.FC_USER && window.FC_USER.role==='vendeur') tab='brief';
+    // 🔐 Vendeur : force brief si on était sur autre chose (aff/rel/etc)
+    if(window.FC_USER && window.FC_USER.role==='vendeur' && !['brief','stats'].includes(tab)) tab='brief';
     updateGlobalFilterBar();
     if(typeof saveSession==='function')saveSession();
     switchTab(tab);
@@ -3295,8 +3299,13 @@ function renderRel(){
   });
 }
 function switchTab(t){
-  // 🔐 Vendeur : seul brief autorisé en vue Équipe ; sinon force retour sur son profil
-  if(window.FC_USER && window.FC_USER.role==='vendeur' && selV===TEAM_IDX && t!=='brief'){
+  // 🔐 Vendeur : blocage onglet réglages
+  if(window.FC_USER && window.FC_USER.role==='vendeur' && ['cfg','kpi'].includes(t)){
+    if(typeof showToastMsg==='function') showToastMsg('🔒 Accès réservé administrateur','var(--red)');
+    return;
+  }
+  // 🔐 Vendeur : autorise brief et stats en vue Équipe ; sinon force retour sur son profil
+  if(window.FC_USER && window.FC_USER.role==='vendeur' && selV===TEAM_IDX && !['brief','stats'].includes(t)){
     var myIdx2 = V.indexOf(window.FC_USER.name);
     if(myIdx2 >= 0){
       selV = myIdx2;
@@ -6484,6 +6493,8 @@ function cfgCopyNextMonth(){
       gFlt = window.FC_USER.name;
       tab = 'aff';
     }
+    // Marquer le body pour cacher les onglets admin (cfg, stats, kpi)
+    document.body.classList.add('is-vendeur');
   }
   // 🔐 Afficher nom utilisateur dans le header
   try {
