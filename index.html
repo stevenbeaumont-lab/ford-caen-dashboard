@@ -3503,6 +3503,7 @@ function switchTab(t){
 
 function updateTabVisibility(){
   const isTeam=selV===TEAM_IDX;
+  const isVendeur = window.FC_USER && window.FC_USER.role === 'vendeur';
   // Brief : équipe seulement
   const briefBtn=document.getElementById('t-brief');
   if(briefBtn)briefBtn.style.display=isTeam?'':'none';
@@ -3516,6 +3517,12 @@ function updateTabVisibility(){
   // KPI : toujours caché (accessible via Dashboard)
   const kpiBtn=document.getElementById('t-kpi');
   if(kpiBtn)kpiBtn.style.display='none';
+  // 🔐 Vendeur en vue Équipe : cacher Affaires, Relances, Agenda, Calendrier, Kanban, Stats
+  if(isVendeur && isTeam){
+    ['aff','rel','agenda','cal','kanban','stats','cfg'].forEach(x=>{
+      const el=document.getElementById('t-'+x);if(el)el.style.display='none';
+    });
+  }
 }
 
 // ── ERROR BOUNDARY ────────────────────────────
