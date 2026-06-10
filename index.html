@@ -914,6 +914,7 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
 <style>
 body.is-vendeur #t-cfg, body.is-vendeur #t-kpi { display:none !important; }
 body.is-vendeur .sb-foot button[onclick="resetAll()"] { display:none !important; }
+body.is-vendeur button[onclick*="delDeal"] { display:none !important; }
 </style>
 <div id="fc-login" style="position:fixed;inset:0;z-index:100000;background:linear-gradient(135deg,#003078 0%,#001F4D 100%);display:flex;align-items:center;justify-content:center;padding:20px;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;">
   <div style="background:rgba(255,255,255,.08);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.15);border-radius:24px;padding:40px 32px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.4);">
@@ -2270,6 +2271,11 @@ function showDelModal(title,sub,onConfirm){
 function closeDelModal(){document.getElementById('del-modal').style.display='none';}
 
 function delDeal(id){
+  // 🔐 Seul l'admin peut supprimer une affaire
+  if(window.FC_USER && window.FC_USER.role !== 'admin'){
+    if(typeof showToastMsg==='function') showToastMsg('🔒 Seul l\'administrateur peut supprimer une affaire','var(--red)');
+    return;
+  }
   const deal=deals.find(d=>d.id===id);if(!deal)return;
   showDelModal(
     `Supprimer "${deal.client}" ?`,
