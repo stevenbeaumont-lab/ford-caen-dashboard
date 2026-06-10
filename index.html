@@ -650,48 +650,147 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
 </head>
 <body>
 
-<!-- 🔄 SYNC SUPABASE: pull initial uniquement si pas de données locales -->
+<!-- 🔄 SYNC SUPABASE: pull au démarrage + push auto en arrière-plan -->
 <script>
 (function(){
-  // Si tu as déjà des données locales, on n'écrase RIEN
-  if (localStorage.getItem('fc_dl')) return;
-  
   var URL = 'https://xhedsjsnurmjtgdsaiwf.supabase.co';
   var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhoZWRzanNudXJtanRnZHNhaXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjgzNjYsImV4cCI6MjA5NjYwNDM2Nn0.L0nLTKwzH2tjjUsIDZ-9w90Xs3YFXaVhxTu5fHZea0s';
   function get(e){var x=new XMLHttpRequest();x.open('GET',URL+'/rest/v1/'+e,false);x.setRequestHeader('apikey',KEY);x.setRequestHeader('Authorization','Bearer '+KEY);try{x.send();if(x.status===200)return JSON.parse(x.responseText);}catch(e){}return[];}
   
-  try {
-    var vendeurs = get('vendeurs?select=*&order=name');
-    if (!vendeurs.length) return;
-    var dealsRaw = get('deals?select=*');
-    var stats = get('stats_journalieres?select=*');
-    var objectifs = get('objectifs?select=*');
+  // ========== PULL INITIAL (uniquement si localStorage vide) ==========
+  if (!localStorage.getItem('fc_dl')) {
+    try {
+      var vendeurs = get('vendeurs?select=*&order=name');
+      if (vendeurs.length) {
+        var dealsRaw = get('deals?select=*');
+        var stats = get('stats_journalieres?select=*');
+        var objectifs = get('objectifs?select=*');
+        var relances = get('relances?select=*');
+        
+        var CFG = {
+          concession:'Ford Caen', defaultRelanceDelay:3, objMensuel:{}, objVendeur:{},
+          archiveDelay:7, duplicateCheck:true, defaultSort:'urgence', vendeurs:[],
+          financements:['Comptant','LOA','LLD','Non défini'],
+          modeles:['Puma','Puma Gen-E','Kuga','Explorer','Capri','Mustang','Tourneo Courier','Tourneo Connect','Tourneo Custom','Transit Courier','E-Transit Courier','Transit Connect','E-Transit Custom','Transit Custom','Ranger'],
+          rdvTypes:['Découverte','Essai','Renouvellement','Information(s)','Autres'],
+          rdvSources:['Appel entrant','Recommandation','Prospection téléphonique','Leap','UpYourLeads','Atelier','Client existant','Passage','Autres'],
+          relanceTypes:['Relance tél.','RDV Showroom','RDV Essai','Email','SMS','WhatsApp','Autre']
+        };
+        CFG.vendeurs = vendeurs.map(function(v){return {name:v.name,color:v.color||'#003078',objectif:v.objectif||18,restDays:v.rest_days||[],typeClient:v.type_client||'part'};});
+        objectifs.forEach(function(o){if(!CFG.objVendeur[o.vendeur])CFG.objVendeur[o.vendeur]={};CFG.objVendeur[o.vendeur][o.mois]=o.objectif;});
+        var V = CFG.vendeurs.map(function(v){return v.name;});
+        
+        var relByDeal = {};
+        relances.forEach(function(r){
+          if (!relByDeal[r.deal_id]) relByDeal[r.deal_id] = [];
+          relByDeal[r.deal_id].push({id:r.id,date:r.date,type:r.type,statut:r.statut,commentaire:r.commentaire||'',vendeur:r.vendeur});
+        });
+        
+        var DB = {};
+        stats.forEach(function(s){var i=V.indexOf(s.vendeur);if(i>=0)DB[i+':'+s.date]={ventes:s.ventes||0,appels:s.appels||0,essais:s.essais||0,livraisons:s.livraisons||0,crm:s.crm||0,noreply:s.noreply||0};});
+        
+        var dealsArr = dealsRaw.map(function(d){return {id:d.id,date:d.date,vendeur:d.vendeur,client:d.client,vehicule:d.vehicule,financement:d.financement,statut:d.statut,commentaire:d.commentaire||'',relances:relByDeal[d.id]||[],notes:[],archived:d.archived||false,archivedDate:d.archived_date};});
+        var maxId = dealsArr.reduce(function(m,d){return Math.max(m,d.id||0);},0);
+        
+        localStorage.setItem('fc_cfg', JSON.stringify(CFG));
+        localStorage.setItem('fc_v', JSON.stringify({V:V,CFG:CFG}));
+        localStorage.setItem('fc_db', JSON.stringify(DB));
+        localStorage.setItem('fc_dl', JSON.stringify({d:dealsArr,nd:maxId+1,nr:1}));
+        console.log('✅ Pull initial: '+V.length+' vendeurs, '+dealsArr.length+' affaires, '+relances.length+' relances');
+      }
+    } catch(e) { console.error('Pull error:', e); }
+  }
+  
+  // ========== PUSH AUTO toutes les 5 sec (détection par hash) ==========
+  var lastHash = localStorage.getItem('fc_dl') || '';
+  var pushing = false;
+  
+  function autoPush(){
+    if (pushing) return;
+    var cur = localStorage.getItem('fc_dl') || '';
+    if (cur === lastHash) return; // rien à pousser
+    pushing = true;
+    lastHash = cur;
     
-    var CFG = {
-      concession:'Ford Caen', defaultRelanceDelay:3, objMensuel:{}, objVendeur:{},
-      archiveDelay:7, duplicateCheck:true, defaultSort:'urgence', vendeurs:[],
-      financements:['Comptant','LOA','LLD','Non défini'],
-      modeles:['Puma','Puma Gen-E','Kuga','Explorer','Capri','Mustang','Tourneo Courier','Tourneo Connect','Tourneo Custom','Transit Courier','E-Transit Courier','Transit Connect','E-Transit Custom','Transit Custom','Ranger'],
-      rdvTypes:['Découverte','Essai','Renouvellement','Information(s)','Autres'],
-      rdvSources:['Appel entrant','Recommandation','Prospection téléphonique','Leap','UpYourLeads','Atelier','Client existant','Passage','Autres'],
-      relanceTypes:['Relance tél.','RDV Showroom','RDV Essai','Email','SMS','WhatsApp','Autre']
+    var dl;
+    try { dl = JSON.parse(cur); } catch(e){ pushing=false; return; }
+    var deals = dl.d || [];
+    
+    // 1. UPSERT deals
+    var dealsPayload = deals.map(function(d){
+      return {
+        id: d.id,
+        date: d.date || null,
+        vendeur: d.vendeur || null,
+        client: d.client || null,
+        vehicule: d.vehicule || null,
+        financement: d.financement || null,
+        statut: d.statut || null,
+        commentaire: d.commentaire || '',
+        archived: !!d.archived,
+        archived_date: d.archivedDate || null
+      };
+    });
+    
+    var hdrs = {
+      'apikey': KEY,
+      'Authorization': 'Bearer ' + KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates,return=minimal'
     };
-    CFG.vendeurs = vendeurs.map(function(v){return {name:v.name,color:v.color||'#003078',objectif:v.objectif||18,restDays:v.rest_days||[],typeClient:v.type_client||'part'};});
-    objectifs.forEach(function(o){if(!CFG.objVendeur[o.vendeur])CFG.objVendeur[o.vendeur]={};CFG.objVendeur[o.vendeur][o.mois]=o.objectif;});
-    var V = CFG.vendeurs.map(function(v){return v.name;});
     
-    var DB = {};
-    stats.forEach(function(s){var i=V.indexOf(s.vendeur);if(i>=0)DB[i+':'+s.date]={ventes:s.ventes||0,appels:s.appels||0,essais:s.essais||0,livraisons:s.livraisons||0,crm:s.crm||0,noreply:s.noreply||0};});
+    var p1 = dealsPayload.length ? fetch(URL+'/rest/v1/deals?on_conflict=id', {
+      method: 'POST', headers: hdrs, body: JSON.stringify(dealsPayload)
+    }) : Promise.resolve();
     
-    var dealsArr = dealsRaw.map(function(d){return {id:d.id,date:d.date,vendeur:d.vendeur,client:d.client,vehicule:d.vehicule,financement:d.financement,statut:d.statut,commentaire:d.commentaire||'',relances:[],notes:[],archived:d.archived||false,archivedDate:d.archived_date};});
-    var maxId = dealsArr.reduce(function(m,d){return Math.max(m,d.id||0);},0);
+    // 2. UPSERT relances (chaque relance a un id TEXT)
+    var allRel = [];
+    deals.forEach(function(d){
+      (d.relances || []).forEach(function(r){
+        allRel.push({
+          id: r.id ? String(r.id) : (d.id + '_' + Math.random().toString(36).slice(2,10)),
+          deal_id: d.id,
+          date: r.date || null,
+          type: r.type || null,
+          statut: r.statut || null,
+          commentaire: r.commentaire || '',
+          vendeur: d.vendeur || null
+        });
+      });
+    });
     
-    localStorage.setItem('fc_cfg', JSON.stringify(CFG));
-    localStorage.setItem('fc_v', JSON.stringify({V:V,CFG:CFG}));
-    localStorage.setItem('fc_db', JSON.stringify(DB));
-    localStorage.setItem('fc_dl', JSON.stringify({d:dealsArr,nd:maxId+1,nr:1}));
-    console.log('✅ Initialisation depuis Supabase: '+V.length+' vendeurs, '+dealsArr.length+' affaires');
-  } catch(e) { console.error('Erreur sync:', e); }
+    var p2 = allRel.length ? fetch(URL+'/rest/v1/relances?on_conflict=id', {
+      method: 'POST', headers: hdrs, body: JSON.stringify(allRel)
+    }) : Promise.resolve();
+    
+    Promise.all([p1, p2]).then(function(){
+      console.log('☁️ Sync cloud OK ('+deals.length+' affaires, '+allRel.length+' relances)');
+      pushing = false;
+    }).catch(function(e){
+      console.error('Sync error:', e);
+      pushing = false;
+    });
+  }
+  
+  // Push auto toutes les 5 secondes
+  setInterval(autoPush, 5000);
+  
+  // Aussi à la fermeture de la page (via sendBeacon, plus fiable)
+  window.addEventListener('beforeunload', function(){
+    var cur = localStorage.getItem('fc_dl') || '';
+    if (cur === lastHash) return;
+    try {
+      var dl = JSON.parse(cur);
+      var deals = dl.d || [];
+      var payload = deals.map(function(d){
+        return {id:d.id, date:d.date||null, vendeur:d.vendeur||null, client:d.client||null, vehicule:d.vehicule||null, financement:d.financement||null, statut:d.statut||null, commentaire:d.commentaire||'', archived:!!d.archived, archived_date:d.archivedDate||null};
+      });
+      navigator.sendBeacon(URL+'/rest/v1/deals?on_conflict=id&apikey='+KEY, new Blob([JSON.stringify(payload)], {type:'application/json'}));
+    } catch(e){}
+  });
+  
+  // Expose pour debug
+  window.fcSync = autoPush;
 })();
 </script>
 
