@@ -650,11 +650,9 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
 </head>
 <body>
 
-<!-- 🔄 SYNC SUPABASE → LOCALSTORAGE (uniquement si premier chargement) -->
+<!-- 🔄 SYNC SUPABASE → toujours rafraîchir CFG (préserve deals locaux) -->
 <script>
 (function(){
-  if (localStorage.getItem('fc_dl')) return; // données locales = on touche à rien
-  
   var URL = 'https://xhedsjsnurmjtgdsaiwf.supabase.co';
   var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhoZWRzanNudXJtanRnZHNhaXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjgzNjYsImV4cCI6MjA5NjYwNDM2Nn0.L0nLTKwzH2tjjUsIDZ-9w90Xs3YFXaVhxTu5fHZea0s';
   function get(e){var x=new XMLHttpRequest();x.open('GET',URL+'/rest/v1/'+e,false);x.setRequestHeader('apikey',KEY);x.setRequestHeader('Authorization','Bearer '+KEY);try{x.send();if(x.status===200)return JSON.parse(x.responseText);}catch(e){}return[];}
@@ -662,10 +660,9 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
   try {
     var vendeurs = get('vendeurs?select=*&order=name');
     if (!vendeurs.length) return;
-    var dealsRaw = get('deals?select=*');
-    var stats = get('stats_journalieres?select=*');
     var objectifs = get('objectifs?select=*');
     
+    // CFG complète avec toutes les listes par défaut
     var CFG = {
       concession:'Ford Caen',
       defaultRelanceDelay:3,
@@ -683,19 +680,26 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
     };
     CFG.vendeurs = vendeurs.map(function(v){return {name:v.name,color:v.color||'#003078',objectif:v.objectif||18,restDays:v.rest_days||[],typeClient:v.type_client||'part'};});
     objectifs.forEach(function(o){if(!CFG.objVendeur[o.vendeur])CFG.objVendeur[o.vendeur]={};CFG.objVendeur[o.vendeur][o.mois]=o.objectif;});
-    
     var V = CFG.vendeurs.map(function(v){return v.name;});
-    var DB = {};
-    stats.forEach(function(s){var i=V.indexOf(s.vendeur);if(i>=0)DB[i+':'+s.date]={ventes:s.ventes||0,appels:s.appels||0,essais:s.essais||0,livraisons:s.livraisons||0,crm:s.crm||0,noreply:s.noreply||0};});
     
-    var dealsArr = dealsRaw.map(function(d){return {id:d.id,date:d.date,vendeur:d.vendeur,client:d.client,vehicule:d.vehicule,financement:d.financement,statut:d.statut,commentaire:d.commentaire||'',relances:[],notes:[],archived:d.archived||false,archivedDate:d.archived_date};});
-    var maxId = dealsArr.reduce(function(m,d){return Math.max(m,d.id||0);},0);
-    
+    // TOUJOURS rafraîchir CFG et V (corrige les corruptions précédentes)
     localStorage.setItem('fc_cfg', JSON.stringify(CFG));
     localStorage.setItem('fc_v', JSON.stringify({V:V,CFG:CFG}));
-    localStorage.setItem('fc_db', JSON.stringify(DB));
-    localStorage.setItem('fc_dl', JSON.stringify({d:dealsArr,nd:maxId+1,nr:1}));
-    console.log('✅ Premier chargement: '+V.length+' vendeurs, '+dealsArr.length+' affaires');
+    
+    // SEED initial des deals/stats SEULEMENT si pas déjà présent localement
+    if (!localStorage.getItem('fc_dl')) {
+      var dealsRaw = get('deals?select=*');
+      var stats = get('stats_journalieres?select=*');
+      var DB = {};
+      stats.forEach(function(s){var i=V.indexOf(s.vendeur);if(i>=0)DB[i+':'+s.date]={ventes:s.ventes||0,appels:s.appels||0,essais:s.essais||0,livraisons:s.livraisons||0,crm:s.crm||0,noreply:s.noreply||0};});
+      var dealsArr = dealsRaw.map(function(d){return {id:d.id,date:d.date,vendeur:d.vendeur,client:d.client,vehicule:d.vehicule,financement:d.financement,statut:d.statut,commentaire:d.commentaire||'',relances:[],notes:[],archived:d.archived||false,archivedDate:d.archived_date};});
+      var maxId = dealsArr.reduce(function(m,d){return Math.max(m,d.id||0);},0);
+      localStorage.setItem('fc_db', JSON.stringify(DB));
+      localStorage.setItem('fc_dl', JSON.stringify({d:dealsArr,nd:maxId+1,nr:1}));
+      console.log('✅ Seed initial: '+V.length+' vendeurs, '+dealsArr.length+' affaires');
+    } else {
+      console.log('✅ CFG rafraîchie (deals locaux préservés)');
+    }
   } catch(e) { console.error(e); }
 })();
 </script>
