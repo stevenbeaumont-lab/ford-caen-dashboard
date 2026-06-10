@@ -961,7 +961,12 @@ body.is-vendeur .sb-foot button[onclick="resetAll()"] { display:none !important;
     document.getElementById('fc-login').style.display = 'none';
     if (saved.role === 'vendeur') document.body.classList.add('is-vendeur');
     // Mettre à jour le label après le chargement du DOM
-    setTimeout(function(){ updateUserLabel(saved); }, 100);
+    setTimeout(function(){ 
+      updateUserLabel(saved); 
+      // Forcer le re-render de la sidebar avec le filtre vendeur
+      if (typeof renderVcards === 'function') renderVcards();
+      if (typeof updateTabVisibility === 'function') updateTabVisibility();
+    }, 100);
     return;
   }
   window.FC_USER = null;
@@ -993,6 +998,12 @@ body.is-vendeur .sb-foot button[onclick="resetAll()"] { display:none !important;
     if (user.role === 'vendeur') document.body.classList.add('is-vendeur');
     updateUserLabel(user);
     document.getElementById('fc-login').style.display = 'none';
+    // Forcer le filtrage des vendeurs immédiatement
+    setTimeout(function(){
+      if (typeof renderVcards === 'function') renderVcards();
+      if (typeof updateTabVisibility === 'function') updateTabVisibility();
+      if (typeof render === 'function') render();
+    }, 50);
   }
   btn.addEventListener('click', login);
   pwd.addEventListener('keydown', function(e){ if(e.key==='Enter') login(); });
@@ -1524,6 +1535,10 @@ function vColor(name){return _VCOLOR_MAP.get(name)||vConfig(name).couleur||'#1C6
 // 🤝 Retourne la liste des vendeurs accessibles pour l'utilisateur connecté
 // Admin = tous les vendeurs ; Vendeur = self + ceux qu'il "voit aussi" via les liens
 function getVendeursAccessibles(){
+  // Fallback : lire FC_USER depuis localStorage si pas en mémoire
+  if (!window.FC_USER) {
+    try { window.FC_USER = JSON.parse(localStorage.getItem('fc_user')||'null'); } catch(e){}
+  }
   if (!window.FC_USER) return V.slice();
   if (window.FC_USER.role === 'admin') return V.slice();
   // Vendeur
