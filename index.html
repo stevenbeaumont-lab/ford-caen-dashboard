@@ -666,8 +666,22 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
     var stats = get('stats_journalieres?select=*');
     var objectifs = get('objectifs?select=*');
     
-    var CFG = { vendeurs: [], objVendeur: {} };
-    CFG.vendeurs = vendeurs.map(function(v){return {name:v.name,color:v.color||'#003078',objectif:v.objectif||18,restDays:v.rest_days||[],typeClient:v.type_client||'particulier'};});
+    var CFG = {
+      concession:'Ford Caen',
+      defaultRelanceDelay:3,
+      objMensuel:{},
+      objVendeur:{},
+      archiveDelay:7,
+      duplicateCheck:true,
+      defaultSort:'urgence',
+      vendeurs:[],
+      financements:['Comptant','LOA','LLD','Non défini'],
+      modeles:['Puma','Puma Gen-E','Kuga','Explorer','Capri','Mustang','Tourneo Courier','Tourneo Connect','Tourneo Custom','Transit Courier','E-Transit Courier','Transit Connect','E-Transit Custom','Transit Custom','Ranger'],
+      rdvTypes:['Découverte','Essai','Renouvellement','Information(s)','Autres'],
+      rdvSources:['Appel entrant','Recommandation','Prospection téléphonique','Leap','UpYourLeads','Atelier','Client existant','Passage','Autres'],
+      relanceTypes:['Relance tél.','RDV Showroom','RDV Essai','Email','SMS','WhatsApp','Autre']
+    };
+    CFG.vendeurs = vendeurs.map(function(v){return {name:v.name,color:v.color||'#003078',objectif:v.objectif||18,restDays:v.rest_days||[],typeClient:v.type_client||'part'};});
     objectifs.forEach(function(o){if(!CFG.objVendeur[o.vendeur])CFG.objVendeur[o.vendeur]={};CFG.objVendeur[o.vendeur][o.mois]=o.objectif;});
     
     var V = CFG.vendeurs.map(function(v){return v.name;});
