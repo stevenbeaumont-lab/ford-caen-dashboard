@@ -4942,48 +4942,103 @@ function renderVendeurClassement(){
   const curMonth = String(today.getMonth()+1).padStart(2,'0');
   const curYM = curYear + '-' + curMonth;
   
-  // Calcul du mois précédent
   const prev = new Date(today);
   prev.setMonth(prev.getMonth()-1);
   const prevYM = prev.getFullYear() + '-' + String(prev.getMonth()+1).padStart(2,'0');
   
-  // Filtrer les ventes selon la période
-  let filterFn, periodeLabel;
+  // Période active
+  let filterFn, periodeLabel, periodeYM;
   if (_classementPeriode === 'month') {
     filterFn = d => d.date && d.date.startsWith(curYM) && d.statut === 'Vendu';
-    periodeLabel = '📅 ' + new Date(curYear, today.getMonth(), 1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+    periodeYM = curYM;
+    periodeLabel = new Date(curYear, today.getMonth(), 1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
   } else if (_classementPeriode === 'prevMonth') {
     filterFn = d => d.date && d.date.startsWith(prevYM) && d.statut === 'Vendu';
-    periodeLabel = '📅 ' + new Date(prev.getFullYear(), prev.getMonth(), 1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+    periodeYM = prevYM;
+    periodeLabel = new Date(prev.getFullYear(), prev.getMonth(), 1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
   } else if (_classementPeriode === 'year') {
     filterFn = d => d.date && d.date.startsWith(curYear+'') && d.statut === 'Vendu';
-    periodeLabel = '🗓️ Année ' + curYear;
+    periodeYM = null;
+    periodeLabel = 'Année ' + curYear;
   } else {
-    // Mois spécifique 'YYYY-MM'
     filterFn = d => d.date && d.date.startsWith(_classementPeriode) && d.statut === 'Vendu';
+    periodeYM = _classementPeriode;
     const [y,m] = _classementPeriode.split('-');
-    periodeLabel = '📅 ' + new Date(parseInt(y), parseInt(m)-1, 1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+    periodeLabel = new Date(parseInt(y), parseInt(m)-1, 1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
   }
   
-  // Compter les ventes par vendeur
+  // Période précédente pour comparaison
+  let prevFilterFn, prevPeriodeYM;
+  if (_classementPeriode === 'year') {
+    const py = curYear - 1;
+    prevFilterFn = d => d.date && d.date.startsWith(py+'') && d.statut === 'Vendu';
+  } else if (periodeYM) {
+    const [y,m] = periodeYM.split('-');
+    const pd = new Date(parseInt(y), parseInt(m)-2, 1);
+    prevPeriodeYM = pd.getFullYear() + '-' + String(pd.getMonth()+1).padStart(2,'0');
+    prevFilterFn = d => d.date && d.date.startsWith(prevPeriodeYM) && d.statut === 'Vendu';
+  }
+  
+  // Stats par vendeur
   const stats = {};
-  V.forEach(name => stats[name] = 0);
+  V.forEach(name => stats[name] = { ventes: 0, prevVentes: 0, objectif: 0 });
+  
   deals.filter(filterFn).forEach(d => {
-    if (stats[d.vendeur] !== undefined) stats[d.vendeur]++;
+    if (stats[d.vendeur] !== undefined) stats[d.vendeur].ventes++;
   });
   
-  // Trier par ventes décroissantes
+  if (prevFilterFn) {
+    deals.filter(prevFilterFn).forEach(d => {
+      if (stats[d.vendeur] !== undefined) stats[d.vendeur].prevVentes++;
+    });
+  }
+  
+  // Objectifs (uniquement pour mois unique, pas année)
+  V.forEach(name => {
+    if (periodeYM) {
+      stats[name].objectif = getVendeurObj(name, periodeYM) || 0;
+    } else {
+      // Année : somme des objectifs mensuels jusqu'à aujourd'hui
+      let yearObj = 0;
+      for (let mm = 1; mm <= today.getMonth()+1; mm++) {
+        yearObj += getVendeurObj(name, curYear + '-' + String(mm).padStart(2,'0')) || 0;
+      }
+      stats[name].objectif = yearObj;
+    }
+  });
+  
+  // Trier par ventes
   const ranked = Object.entries(stats)
-    .map(([name, ventes]) => ({name, ventes, color: vColor(name)}))
+    .map(([name, s]) => ({
+      name,
+      ventes: s.ventes,
+      prevVentes: s.prevVentes,
+      objectif: s.objectif,
+      color: vColor(name),
+      progression: s.objectif > 0 ? Math.round(s.ventes/s.objectif*100) : 0,
+      delta: s.ventes - s.prevVentes
+    }))
     .sort((a,b) => b.ventes - a.ventes);
   
   const myName = window.FC_USER ? window.FC_USER.name : '';
+  const me = ranked.find(v => v.name === myName);
   const myRank = ranked.findIndex(v => v.name === myName) + 1;
-  const myVentes = ranked.find(v => v.name === myName)?.ventes || 0;
   const totalEquipe = ranked.reduce((s,v) => s+v.ventes, 0);
+  const totalObjEquipe = ranked.reduce((s,v) => s+v.objectif, 0);
+  const totalPrevEquipe = ranked.reduce((s,v) => s+v.prevVentes, 0);
   const maxVentes = Math.max(...ranked.map(v => v.ventes), 1);
+  const top = ranked[0];
   
-  // Génération des options de mois pour le sélecteur (12 derniers mois)
+  // Messages motivants selon position
+  const motivations = {
+    1: { emoji: '🏆', msg: 'Champion ! Vous menez l\'équipe', color: '#fbbf24' },
+    2: { emoji: '🚀', msg: 'Excellent ! La 1ère place est proche', color: '#94a3b8' },
+    3: { emoji: '💪', msg: 'Beau travail ! Continuez sur cette lancée', color: '#f97316' },
+    default: { emoji: '🎯', msg: 'Donnez tout pour grimper au classement', color: '#0066cc' }
+  };
+  const motiv = motivations[myRank] || motivations.default;
+  
+  // 12 derniers mois
   const moisOptions = [];
   for (let i = 0; i < 12; i++) {
     const d = new Date(curYear, today.getMonth() - i, 1);
@@ -4992,91 +5047,177 @@ function renderVendeurClassement(){
     moisOptions.push({ym, label});
   }
   
-  // Médailles pour top 3
   const medals = ['🥇', '🥈', '🥉'];
+  const deltaIcon = d => d > 0 ? '↗' : (d < 0 ? '↘' : '→');
+  const deltaColor = d => d > 0 ? '#10b981' : (d < 0 ? '#ef4444' : 'var(--txt2)');
   
   const html = `
-    <div style="max-width:900px;margin:0 auto;padding:0 16px;">
-      <!-- Header -->
-      <div style="text-align:center;margin-bottom:24px;">
-        <h2 style="font-size:28px;font-weight:800;margin:0 0 8px;background:linear-gradient(135deg,#003078,#0066cc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">🏆 Classement de l'équipe</h2>
-        <div style="font-size:13px;color:var(--txt2);">${periodeLabel}</div>
+    <style>
+      @keyframes fcSlideIn { from { opacity:0; transform:translateY(15px); } to { opacity:1; transform:translateY(0); } }
+      @keyframes fcGrowBar { from { width:0 !important; } }
+      @keyframes fcGoldShine { 0%,100% { box-shadow: 0 0 20px rgba(251,191,36,.3); } 50% { box-shadow: 0 0 40px rgba(251,191,36,.7); } }
+      .fc-card { animation: fcSlideIn .5s ease both; }
+      .fc-card:nth-child(2) { animation-delay:.05s; }
+      .fc-card:nth-child(3) { animation-delay:.1s; }
+      .fc-card:nth-child(4) { animation-delay:.15s; }
+      .fc-bar > div { animation: fcGrowBar 1s ease forwards; }
+      .fc-top { animation: fcGoldShine 3s ease-in-out infinite; }
+    </style>
+    
+    <div style="max-width:980px;margin:0 auto;padding:0 16px;">
+      
+      <!-- Hero header -->
+      <div class="fc-card" style="text-align:center;margin-bottom:24px;">
+        <div style="display:inline-block;padding:6px 14px;background:rgba(0,102,204,.1);border:1px solid rgba(0,102,204,.2);border-radius:99px;font-size:11px;font-weight:700;color:#0066cc;text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px;">
+          ⚡ Classement live
+        </div>
+        <h2 style="font-size:32px;font-weight:800;margin:0 0 6px;background:linear-gradient(135deg,#003078,#0066cc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-1px;">${periodeLabel}</h2>
+        <div style="font-size:14px;color:var(--txt2);">Sello Caen · Performance d'équipe</div>
       </div>
       
-      <!-- Sélecteur de période -->
-      <div style="background:var(--card);border:1px solid var(--brd);border-radius:14px;padding:14px;margin-bottom:20px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-        <span style="font-size:12px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.04em;margin-right:8px;">Période :</span>
-        <button onclick="setClassementPeriode('month')" style="padding:8px 14px;border-radius:99px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:${_classementPeriode==='month'?'linear-gradient(135deg,#003078,#0066cc)':'var(--card2)'};color:${_classementPeriode==='month'?'#fff':'var(--txt2)'};">Mois en cours</button>
-        <button onclick="setClassementPeriode('prevMonth')" style="padding:8px 14px;border-radius:99px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:${_classementPeriode==='prevMonth'?'linear-gradient(135deg,#003078,#0066cc)':'var(--card2)'};color:${_classementPeriode==='prevMonth'?'#fff':'var(--txt2)'};">Mois précédent</button>
-        <button onclick="setClassementPeriode('year')" style="padding:8px 14px;border-radius:99px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:${_classementPeriode==='year'?'linear-gradient(135deg,#003078,#0066cc)':'var(--card2)'};color:${_classementPeriode==='year'?'#fff':'var(--txt2)'};">Année ${curYear}</button>
-        <select onchange="setClassementPeriode(this.value)" style="padding:8px 12px;border-radius:99px;border:1px solid var(--brd);background:var(--card2);color:var(--txt2);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">
-          <option value="">Autre mois...</option>
+      <!-- Sélecteur période -->
+      <div class="fc-card" style="background:var(--card);border:1px solid var(--brd);border-radius:14px;padding:12px;margin-bottom:20px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;">
+        <button onclick="setClassementPeriode('month')" style="padding:8px 16px;border-radius:99px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:${_classementPeriode==='month'?'linear-gradient(135deg,#003078,#0066cc)':'var(--card2)'};color:${_classementPeriode==='month'?'#fff':'var(--txt2)'};transition:all .2s;">Ce mois</button>
+        <button onclick="setClassementPeriode('prevMonth')" style="padding:8px 16px;border-radius:99px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:${_classementPeriode==='prevMonth'?'linear-gradient(135deg,#003078,#0066cc)':'var(--card2)'};color:${_classementPeriode==='prevMonth'?'#fff':'var(--txt2)'};transition:all .2s;">Mois dernier</button>
+        <button onclick="setClassementPeriode('year')" style="padding:8px 16px;border-radius:99px;border:none;cursor:pointer;font-size:13px;font-weight:600;background:${_classementPeriode==='year'?'linear-gradient(135deg,#003078,#0066cc)':'var(--card2)'};color:${_classementPeriode==='year'?'#fff':'var(--txt2)'};transition:all .2s;">Année ${curYear}</button>
+        <select onchange="if(this.value)setClassementPeriode(this.value)" style="padding:8px 14px;border-radius:99px;border:1px solid var(--brd);background:var(--card2);color:var(--txt2);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">
+          <option value="">📅 Choisir un mois</option>
           ${moisOptions.map(o => `<option value="${o.ym}" ${o.ym===_classementPeriode?'selected':''}>${o.label}</option>`).join('')}
         </select>
       </div>
       
-      <!-- Ma position (carte mise en avant) -->
-      ${myName ? `
-      <div style="background:linear-gradient(135deg,rgba(0,48,120,.08),rgba(0,102,204,.08));border:2px solid #0066cc;border-radius:18px;padding:20px;margin-bottom:24px;display:grid;grid-template-columns:auto 1fr auto;gap:20px;align-items:center;">
-        <div style="font-size:48px;font-weight:800;color:#0066cc;line-height:1;min-width:60px;text-align:center;">
-          ${myRank <= 3 ? medals[myRank-1] : '#'+myRank}
+      ${me ? `
+      <!-- Ma carte premium -->
+      <div class="fc-card" style="background:linear-gradient(135deg,rgba(0,48,120,.95),rgba(0,102,204,.95));color:#fff;border-radius:20px;padding:28px;margin-bottom:24px;box-shadow:0 20px 50px rgba(0,48,120,.25);position:relative;overflow:hidden;">
+        <div style="position:absolute;top:-50px;right:-50px;width:200px;height:200px;background:radial-gradient(circle,rgba(255,255,255,.15),transparent);"></div>
+        <div style="position:relative;display:grid;grid-template-columns:auto 1fr auto;gap:24px;align-items:center;">
+          <div style="font-size:64px;line-height:1;text-align:center;min-width:80px;">
+            ${myRank <= 3 ? medals[myRank-1] : '<span style="font-size:48px;font-weight:800;">#'+myRank+'</span>'}
+          </div>
+          <div>
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:.12em;opacity:.7;font-weight:600;margin-bottom:6px;">${motiv.emoji} ${motiv.msg}</div>
+            <div style="font-size:24px;font-weight:800;margin-bottom:8px;">${myName}</div>
+            ${me.objectif > 0 ? `
+              <div style="font-size:13px;opacity:.85;margin-bottom:8px;">
+                Objectif : <strong>${me.objectif}</strong> · Atteint : <strong>${me.progression}%</strong>
+                ${me.progression >= 100 ? ' ✅' : ''}
+              </div>
+              <div class="fc-bar" style="background:rgba(255,255,255,.2);height:10px;border-radius:99px;overflow:hidden;">
+                <div style="background:linear-gradient(90deg,#fff,#cde4ff);height:100%;width:${Math.min(100,me.progression)}%;border-radius:99px;box-shadow:0 0 12px rgba(255,255,255,.4);"></div>
+              </div>
+            ` : '<div style="font-size:13px;opacity:.7;">Pas d\'objectif défini pour cette période</div>'}
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:56px;font-weight:900;line-height:1;">${me.ventes}</div>
+            <div style="font-size:11px;opacity:.7;font-weight:600;text-transform:uppercase;letter-spacing:.08em;">ventes</div>
+            ${prevFilterFn ? `
+              <div style="font-size:12px;margin-top:6px;color:${me.delta>0?'#a7f3d0':(me.delta<0?'#fecaca':'rgba(255,255,255,.6)')};">
+                ${deltaIcon(me.delta)} ${me.delta>0?'+':''}${me.delta} vs préc.
+              </div>
+            ` : ''}
+          </div>
         </div>
-        <div>
-          <div style="font-size:12px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:4px;">Ma position</div>
-          <div style="font-size:20px;font-weight:700;color:var(--txt);">${myName}</div>
-          <div style="font-size:13px;color:var(--txt2);margin-top:4px;">${totalEquipe > 0 ? Math.round(myVentes/totalEquipe*100) : 0}% des ventes de l'équipe</div>
+      </div>
+      ` : ''}
+      
+      <!-- Podium -->
+      ${ranked.length >= 3 && ranked[0].ventes > 0 ? `
+      <div class="fc-card" style="display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:12px;margin-bottom:24px;align-items:end;">
+        <!-- 2e -->
+        <div style="background:var(--card);border:1px solid var(--brd);border-radius:16px;padding:20px;text-align:center;border-top:4px solid #94a3b8;">
+          <div style="font-size:40px;margin-bottom:8px;">🥈</div>
+          <div style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:4px;">${ranked[1].name}</div>
+          <div style="font-size:32px;font-weight:800;color:#94a3b8;">${ranked[1].ventes}</div>
+          <div style="font-size:11px;color:var(--txt2);">ventes</div>
         </div>
-        <div style="text-align:right;">
-          <div style="font-size:36px;font-weight:800;line-height:1;background:linear-gradient(135deg,#003078,#0066cc);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">${myVentes}</div>
-          <div style="font-size:12px;color:var(--txt2);font-weight:600;">vente${myVentes>1?'s':''}</div>
+        <!-- 1er -->
+        <div class="fc-top" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:18px;padding:24px;text-align:center;transform:translateY(-12px);">
+          <div style="font-size:52px;margin-bottom:8px;">🥇</div>
+          <div style="font-size:11px;font-weight:700;color:#92400e;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Champion</div>
+          <div style="font-size:16px;font-weight:800;color:#451a03;margin-bottom:4px;">${ranked[0].name}</div>
+          <div style="font-size:40px;font-weight:900;color:#92400e;">${ranked[0].ventes}</div>
+          <div style="font-size:11px;color:#92400e;font-weight:600;">ventes</div>
+        </div>
+        <!-- 3e -->
+        <div style="background:var(--card);border:1px solid var(--brd);border-radius:16px;padding:20px;text-align:center;border-top:4px solid #d97706;">
+          <div style="font-size:40px;margin-bottom:8px;">🥉</div>
+          <div style="font-size:14px;font-weight:700;color:var(--txt);margin-bottom:4px;">${ranked[2].name}</div>
+          <div style="font-size:32px;font-weight:800;color:#d97706;">${ranked[2].ventes}</div>
+          <div style="font-size:11px;color:var(--txt2);">ventes</div>
         </div>
       </div>
       ` : ''}
       
       <!-- Classement complet -->
-      <div style="background:var(--card);border:1px solid var(--brd);border-radius:16px;overflow:hidden;">
-        <div style="padding:14px 20px;border-bottom:1px solid var(--brd);font-weight:700;font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--txt2);">
-          📊 Classement complet de l'équipe
+      <div class="fc-card" style="background:var(--card);border:1px solid var(--brd);border-radius:18px;overflow:hidden;margin-bottom:24px;">
+        <div style="padding:16px 22px;border-bottom:1px solid var(--brd);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--txt2);display:flex;align-items:center;justify-content:space-between;">
+          <span>📊 Classement détaillé avec objectifs</span>
+          <span style="font-size:11px;font-weight:600;opacity:.7;">${ranked.length} vendeur${ranked.length>1?'s':''}</span>
         </div>
         ${ranked.map((v,i) => `
-          <div style="display:grid;grid-template-columns:50px 1fr auto;gap:16px;padding:16px 20px;align-items:center;border-bottom:1px solid var(--brd);${v.name===myName?'background:rgba(0,102,204,.05);':''}">
-            <div style="font-size:${i<3?'28px':'18px'};font-weight:800;text-align:center;color:${i<3?'inherit':'var(--txt2)'};">
-              ${i < 3 ? medals[i] : '#'+(i+1)}
-            </div>
-            <div>
-              <div style="font-size:15px;font-weight:${v.name===myName?'700':'600'};color:var(--txt);margin-bottom:6px;">
-                ${v.name}${v.name===myName?' <span style="font-size:11px;color:#0066cc;background:rgba(0,102,204,.15);padding:2px 8px;border-radius:99px;margin-left:6px;font-weight:600;">VOUS</span>':''}
+          <div style="padding:18px 22px;border-bottom:1px solid var(--brd);${v.name===myName?'background:linear-gradient(90deg,rgba(0,102,204,.08),transparent);':''}">
+            <div style="display:grid;grid-template-columns:50px 1fr auto auto;gap:18px;align-items:center;">
+              <div style="font-size:${i<3?'32px':'20px'};font-weight:800;text-align:center;color:${i<3?'inherit':'var(--txt2)'};">
+                ${i < 3 ? medals[i] : '#'+(i+1)}
               </div>
-              <div style="background:var(--card2);height:8px;border-radius:99px;overflow:hidden;">
-                <div style="background:${v.color};height:100%;width:${maxVentes > 0 ? (v.ventes/maxVentes*100) : 0}%;border-radius:99px;transition:width .5s;"></div>
+              <div>
+                <div style="font-size:15px;font-weight:${v.name===myName?'800':'700'};color:var(--txt);margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <span>${v.name}</span>
+                  ${v.name===myName?'<span style="font-size:10px;color:#0066cc;background:rgba(0,102,204,.15);padding:3px 10px;border-radius:99px;font-weight:700;letter-spacing:.04em;">VOUS</span>':''}
+                  ${v.objectif > 0 && v.progression >= 100 ? '<span style="font-size:11px;background:rgba(16,185,129,.15);color:#10b981;padding:2px 8px;border-radius:99px;font-weight:700;">✓ Objectif atteint</span>' : ''}
+                </div>
+                <div class="fc-bar" style="background:var(--card2);height:8px;border-radius:99px;overflow:hidden;position:relative;">
+                  <div style="background:linear-gradient(90deg,${v.color},${v.color}cc);height:100%;width:${maxVentes > 0 ? (v.ventes/maxVentes*100) : 0}%;border-radius:99px;"></div>
+                  ${v.objectif > 0 && v.objectif <= maxVentes ? `<div style="position:absolute;left:${(v.objectif/maxVentes*100)}%;top:-4px;bottom:-4px;width:2px;background:rgba(0,0,0,.3);"></div>` : ''}
+                </div>
+                ${v.objectif > 0 ? `<div style="font-size:11px;color:var(--txt2);margin-top:6px;">🎯 Objectif : <strong>${v.objectif}</strong> · ${v.progression}% atteint</div>` : ''}
               </div>
-            </div>
-            <div style="text-align:right;min-width:80px;">
-              <div style="font-size:24px;font-weight:800;color:var(--txt);line-height:1;">${v.ventes}</div>
-              <div style="font-size:11px;color:var(--txt2);font-weight:600;">${v.ventes>1?'ventes':'vente'}</div>
+              <div style="text-align:right;min-width:70px;">
+                <div style="font-size:28px;font-weight:800;color:var(--txt);line-height:1;">${v.ventes}</div>
+                <div style="font-size:10px;color:var(--txt2);font-weight:600;text-transform:uppercase;">ventes</div>
+              </div>
+              ${prevFilterFn ? `
+              <div style="text-align:right;min-width:60px;">
+                <div style="font-size:13px;font-weight:700;color:${deltaColor(v.delta)};">${deltaIcon(v.delta)} ${v.delta>0?'+':''}${v.delta}</div>
+                <div style="font-size:9px;color:var(--txt2);text-transform:uppercase;">vs préc.</div>
+              </div>
+              ` : ''}
             </div>
           </div>
         `).join('')}
-        ${ranked.length === 0 ? '<div style="padding:40px;text-align:center;color:var(--txt2);">Aucune vente sur cette période</div>' : ''}
+        ${ranked.length === 0 ? '<div style="padding:50px;text-align:center;color:var(--txt2);">Aucune donnée sur cette période</div>' : ''}
       </div>
       
-      <!-- Stats globales -->
-      <div style="margin-top:24px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;">
-        <div style="background:var(--card);border:1px solid var(--brd);border-radius:14px;padding:18px;text-align:center;">
-          <div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:6px;">Total équipe</div>
-          <div style="font-size:32px;font-weight:800;color:var(--txt);">${totalEquipe}</div>
-          <div style="font-size:12px;color:var(--txt2);">ventes</div>
+      <!-- Synthèse équipe -->
+      <div class="fc-card" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:20px;">
+        <div style="background:linear-gradient(135deg,rgba(0,102,204,.08),rgba(0,102,204,.03));border:1px solid rgba(0,102,204,.2);border-radius:16px;padding:20px;">
+          <div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:8px;">🎯 Total équipe</div>
+          <div style="font-size:36px;font-weight:900;color:#0066cc;line-height:1;">${totalEquipe}</div>
+          <div style="font-size:12px;color:var(--txt2);margin-top:4px;">${totalObjEquipe > 0 ? `/ ${totalObjEquipe} objectif (${Math.round(totalEquipe/totalObjEquipe*100)}%)` : 'ventes réalisées'}</div>
+          ${totalObjEquipe > 0 ? `
+          <div class="fc-bar" style="background:rgba(0,102,204,.15);height:6px;border-radius:99px;margin-top:10px;overflow:hidden;">
+            <div style="background:linear-gradient(90deg,#003078,#0066cc);height:100%;width:${Math.min(100, totalEquipe/totalObjEquipe*100)}%;border-radius:99px;"></div>
+          </div>` : ''}
         </div>
-        <div style="background:var(--card);border:1px solid var(--brd);border-radius:14px;padding:18px;text-align:center;">
-          <div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:6px;">Moyenne / vendeur</div>
-          <div style="font-size:32px;font-weight:800;color:var(--txt);">${ranked.length > 0 ? Math.round(totalEquipe/ranked.length*10)/10 : 0}</div>
-          <div style="font-size:12px;color:var(--txt2);">ventes</div>
+        <div style="background:var(--card);border:1px solid var(--brd);border-radius:16px;padding:20px;">
+          <div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:8px;">📈 Moyenne</div>
+          <div style="font-size:36px;font-weight:900;color:var(--txt);line-height:1;">${ranked.length > 0 ? (Math.round(totalEquipe/ranked.length*10)/10) : 0}</div>
+          <div style="font-size:12px;color:var(--txt2);margin-top:4px;">ventes / vendeur</div>
         </div>
-        <div style="background:var(--card);border:1px solid var(--brd);border-radius:14px;padding:18px;text-align:center;">
-          <div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:6px;">Meilleur score</div>
-          <div style="font-size:32px;font-weight:800;color:var(--txt);">${ranked[0]?.ventes || 0}</div>
-          <div style="font-size:12px;color:var(--txt2);">par ${ranked[0]?.name || '—'}</div>
+        <div style="background:var(--card);border:1px solid var(--brd);border-radius:16px;padding:20px;">
+          <div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:8px;">🏆 Top score</div>
+          <div style="font-size:36px;font-weight:900;color:#f59e0b;line-height:1;">${top?.ventes || 0}</div>
+          <div style="font-size:12px;color:var(--txt2);margin-top:4px;">par ${top?.name || '—'}</div>
         </div>
+        ${prevFilterFn ? `
+        <div style="background:var(--card);border:1px solid var(--brd);border-radius:16px;padding:20px;">
+          <div style="font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.08em;font-weight:700;margin-bottom:8px;">📊 Évolution</div>
+          <div style="font-size:36px;font-weight:900;line-height:1;color:${totalEquipe-totalPrevEquipe>0?'#10b981':(totalEquipe-totalPrevEquipe<0?'#ef4444':'var(--txt2)')};">
+            ${deltaIcon(totalEquipe-totalPrevEquipe)} ${totalEquipe-totalPrevEquipe>0?'+':''}${totalEquipe-totalPrevEquipe}
+          </div>
+          <div style="font-size:12px;color:var(--txt2);margin-top:4px;">vs ${totalPrevEquipe} préc.</div>
+        </div>
+        ` : ''}
       </div>
     </div>
   `;
