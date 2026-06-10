@@ -650,28 +650,26 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
 </head>
 <body>
 
-<!-- 🔄 SYNC SUPABASE → toujours rafraîchir CFG (préserve deals locaux) -->
+<!-- 🔄 SYNC SUPABASE 2-SENS AUTOMATIQUE -->
 <script>
 (function(){
   var URL = 'https://xhedsjsnurmjtgdsaiwf.supabase.co';
   var KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhoZWRzanNudXJtanRnZHNhaXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjgzNjYsImV4cCI6MjA5NjYwNDM2Nn0.L0nLTKwzH2tjjUsIDZ-9w90Xs3YFXaVhxTu5fHZea0s';
-  function get(e){var x=new XMLHttpRequest();x.open('GET',URL+'/rest/v1/'+e,false);x.setRequestHeader('apikey',KEY);x.setRequestHeader('Authorization','Bearer '+KEY);try{x.send();if(x.status===200)return JSON.parse(x.responseText);}catch(e){}return[];}
+  
+  // ====== PULL: au chargement (synchrone) ======
+  function getSync(e){var x=new XMLHttpRequest();x.open('GET',URL+'/rest/v1/'+e,false);x.setRequestHeader('apikey',KEY);x.setRequestHeader('Authorization','Bearer '+KEY);try{x.send();if(x.status===200)return JSON.parse(x.responseText);}catch(e){}return[];}
   
   try {
-    var vendeurs = get('vendeurs?select=*&order=name');
+    var vendeurs = getSync('vendeurs?select=*&order=name');
     if (!vendeurs.length) return;
-    var objectifs = get('objectifs?select=*');
+    var objectifs = getSync('objectifs?select=*');
+    var dealsRaw = getSync('deals?select=*');
+    var stats = getSync('stats_journalieres?select=*');
+    var relances = getSync('relances?select=*');
     
-    // CFG complète avec toutes les listes par défaut
     var CFG = {
-      concession:'Ford Caen',
-      defaultRelanceDelay:3,
-      objMensuel:{},
-      objVendeur:{},
-      archiveDelay:7,
-      duplicateCheck:true,
-      defaultSort:'urgence',
-      vendeurs:[],
+      concession:'Ford Caen', defaultRelanceDelay:3, objMensuel:{}, objVendeur:{},
+      archiveDelay:7, duplicateCheck:true, defaultSort:'urgence', vendeurs:[],
       financements:['Comptant','LOA','LLD','Non défini'],
       modeles:['Puma','Puma Gen-E','Kuga','Explorer','Capri','Mustang','Tourneo Courier','Tourneo Connect','Tourneo Custom','Transit Courier','E-Transit Courier','Transit Connect','E-Transit Custom','Transit Custom','Ranger'],
       rdvTypes:['Découverte','Essai','Renouvellement','Information(s)','Autres'],
@@ -682,25 +680,118 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
     objectifs.forEach(function(o){if(!CFG.objVendeur[o.vendeur])CFG.objVendeur[o.vendeur]={};CFG.objVendeur[o.vendeur][o.mois]=o.objectif;});
     var V = CFG.vendeurs.map(function(v){return v.name;});
     
-    // TOUJOURS rafraîchir CFG et V (corrige les corruptions précédentes)
+    // Grouper relances par deal_id
+    var relByDeal = {};
+    relances.forEach(function(r){
+      if (!relByDeal[r.deal_id]) relByDeal[r.deal_id] = [];
+      relByDeal[r.deal_id].push({id:r.id,date:r.date,type:r.type,statut:r.statut,commentaire:r.commentaire||'',vendeur:r.vendeur});
+    });
+    
+    var DB = {};
+    stats.forEach(function(s){var i=V.indexOf(s.vendeur);if(i>=0)DB[i+':'+s.date]={ventes:s.ventes||0,appels:s.appels||0,essais:s.essais||0,livraisons:s.livraisons||0,crm:s.crm||0,noreply:s.noreply||0};});
+    
+    var dealsArr = dealsRaw.map(function(d){return {id:d.id,date:d.date,vendeur:d.vendeur,client:d.client,vehicule:d.vehicule,financement:d.financement,statut:d.statut,commentaire:d.commentaire||'',relances:relByDeal[d.id]||[],notes:[],archived:d.archived||false,archivedDate:d.archived_date};});
+    var maxId = dealsArr.reduce(function(m,d){return Math.max(m,d.id||0);},0);
+    
+    // TOUJOURS écraser localStorage avec les données fraîches de Supabase
     localStorage.setItem('fc_cfg', JSON.stringify(CFG));
     localStorage.setItem('fc_v', JSON.stringify({V:V,CFG:CFG}));
+    localStorage.setItem('fc_db', JSON.stringify(DB));
+    localStorage.setItem('fc_dl', JSON.stringify({d:dealsArr,nd:maxId+1,nr:1}));
+    console.log('✅ Sync Supabase: '+V.length+' vendeurs, '+dealsArr.length+' affaires, '+relances.length+' relances');
+  } catch(e) { console.error('Pull error:', e); }
+  
+  // ====== PUSH: auto toutes les 10 sec si changement ======
+  var lastHash = (localStorage.getItem('fc_dl')||'') + '|' + (localStorage.getItem('fc_db')||'');
+  var pushing = false;
+  
+  function headers(extra){var h={'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json'};if(extra)for(var k in extra)h[k]=extra[k];return h;}
+  
+  function pushNow(){
+    if (pushing) return;
+    var curHash = (localStorage.getItem('fc_dl')||'') + '|' + (localStorage.getItem('fc_db')||'');
+    if (curHash === lastHash) return; // pas de changement
+    pushing = true;
+    lastHash = curHash;
     
-    // SEED initial des deals/stats SEULEMENT si pas déjà présent localement
-    if (!localStorage.getItem('fc_dl')) {
-      var dealsRaw = get('deals?select=*');
-      var stats = get('stats_journalieres?select=*');
-      var DB = {};
-      stats.forEach(function(s){var i=V.indexOf(s.vendeur);if(i>=0)DB[i+':'+s.date]={ventes:s.ventes||0,appels:s.appels||0,essais:s.essais||0,livraisons:s.livraisons||0,crm:s.crm||0,noreply:s.noreply||0};});
-      var dealsArr = dealsRaw.map(function(d){return {id:d.id,date:d.date,vendeur:d.vendeur,client:d.client,vehicule:d.vehicule,financement:d.financement,statut:d.statut,commentaire:d.commentaire||'',relances:[],notes:[],archived:d.archived||false,archivedDate:d.archived_date};});
-      var maxId = dealsArr.reduce(function(m,d){return Math.max(m,d.id||0);},0);
-      localStorage.setItem('fc_db', JSON.stringify(DB));
-      localStorage.setItem('fc_dl', JSON.stringify({d:dealsArr,nd:maxId+1,nr:1}));
-      console.log('✅ Seed initial: '+V.length+' vendeurs, '+dealsArr.length+' affaires');
-    } else {
-      console.log('✅ CFG rafraîchie (deals locaux préservés)');
+    var dl = {}, db = {}, cfg = {};
+    try { dl = JSON.parse(localStorage.getItem('fc_dl')||'{}'); } catch(e){}
+    try { db = JSON.parse(localStorage.getItem('fc_db')||'{}'); } catch(e){}
+    try { cfg = JSON.parse(localStorage.getItem('fc_cfg')||'{}'); } catch(e){}
+    
+    var deals = dl.d || [];
+    var V = (cfg.vendeurs||[]).map(function(v){return v.name;});
+    
+    // 1. UPSERT deals
+    var dealsPayload = deals.map(function(d){
+      return {
+        id:d.id, date:d.date||null, vendeur:d.vendeur||null, client:d.client||null,
+        vehicule:d.vehicule||null, financement:d.financement||null, statut:d.statut||null,
+        commentaire:d.commentaire||'', archived:!!d.archived, archived_date:d.archivedDate||null
+      };
+    });
+    
+    var p1 = dealsPayload.length ? fetch(URL+'/rest/v1/deals?on_conflict=id', {
+      method:'POST',
+      headers:headers({'Prefer':'resolution=merge-duplicates,return=minimal'}),
+      body:JSON.stringify(dealsPayload)
+    }) : Promise.resolve();
+    
+    // 2. Relances : delete all + insert all
+    var allRel = [];
+    deals.forEach(function(d){
+      (d.relances||[]).forEach(function(r){
+        allRel.push({
+          id: r.id ? String(r.id) : (d.id+'_'+Math.random().toString(36).slice(2,10)),
+          deal_id:d.id, date:r.date||null, type:r.type||null, statut:r.statut||null,
+          commentaire:r.commentaire||'', vendeur:d.vendeur||null
+        });
+      });
+    });
+    
+    var p2 = fetch(URL+'/rest/v1/relances?id=not.is.null', {
+      method:'DELETE',
+      headers:headers()
+    }).then(function(){
+      if (!allRel.length) return;
+      return fetch(URL+'/rest/v1/relances', {
+        method:'POST',
+        headers:headers({'Prefer':'return=minimal'}),
+        body:JSON.stringify(allRel)
+      });
+    });
+    
+    Promise.all([p1, p2]).then(function(){
+      console.log('☁️ Push auto OK ('+deals.length+' affaires, '+allRel.length+' relances)');
+      pushing = false;
+    }).catch(function(e){
+      console.error('Push error:', e);
+      pushing = false;
+    });
+  }
+  
+  // Démarrer le push auto toutes les 10 sec
+  setInterval(pushNow, 10000);
+  
+  // Push aussi au focus de la fenêtre (quand on revient sur l'onglet)
+  window.addEventListener('focus', pushNow);
+  // Push avant fermeture
+  window.addEventListener('beforeunload', function(){
+    var curHash = (localStorage.getItem('fc_dl')||'') + '|' + (localStorage.getItem('fc_db')||'');
+    if (curHash !== lastHash) {
+      // Push synchrone via sendBeacon
+      try {
+        var dl = JSON.parse(localStorage.getItem('fc_dl')||'{}');
+        var deals = dl.d || [];
+        var payload = deals.map(function(d){
+          return {id:d.id, date:d.date||null, vendeur:d.vendeur||null, client:d.client||null, vehicule:d.vehicule||null, financement:d.financement||null, statut:d.statut||null, commentaire:d.commentaire||'', archived:!!d.archived, archived_date:d.archivedDate||null};
+        });
+        navigator.sendBeacon(URL+'/rest/v1/deals?on_conflict=id&apikey='+KEY, new Blob([JSON.stringify(payload)], {type:'application/json'}));
+      } catch(e){}
     }
-  } catch(e) { console.error(e); }
+  });
+  
+  window.fcManualSync = pushNow; // pour debug : fcManualSync() dans la console
 })();
 </script>
 
