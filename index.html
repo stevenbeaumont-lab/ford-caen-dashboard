@@ -770,8 +770,8 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
     });
   }
   
-  // Démarrer le push auto toutes les 10 sec
-  setInterval(pushNow, 10000);
+  // Démarrer le push auto toutes les 30 sec (allongé pour debug)
+  setInterval(pushNow, 30000);
   
   // Push aussi au focus de la fenêtre (quand on revient sur l'onglet)
   window.addEventListener('focus', pushNow);
