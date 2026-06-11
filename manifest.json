@@ -1,0 +1,25 @@
+{
+  "name": "Sello Caen - Dashboard Ford",
+  "short_name": "Sello",
+  "description": "Dashboard CRM Ford Caen",
+  "start_url": "/ford-caen-dashboard/",
+  "scope": "/ford-caen-dashboard/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#003078",
+  "theme_color": "#003078",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
