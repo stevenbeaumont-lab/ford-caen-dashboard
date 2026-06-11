@@ -452,7 +452,20 @@ body.dark .sb-item.tod{background:#2A1A00;border-color:#92400E;}
 .fab:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,48,120,.42),0 4px 10px rgba(0,48,120,.22),inset 0 1px 0 rgba(255,255,255,.22);}
 .fab:active{transform:translateY(0) scale(.97);transition:transform .08s;}
 .fab svg{flex-shrink:0;}
-.fab::before{content:"";width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.18);display:inline-flex;align-items:center;justify-content:center;font-size:16px;font-weight:300;line-height:1;margin-right:-2px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.5' stroke-linecap='round'><line x1='12' y1='5' x2='12' y2='19'/><line x1='5' y1='12' x2='19' y2='12'/></svg>");background-repeat:no-repeat;background-position:center;}
+.fab.fab-plus{width:56px;height:56px;border-radius:50%;padding:0;font-size:30px;font-weight:300;line-height:1;}
+.fab.fab-plus::before{display:none;}
+.fab.fab-plus span{transition:transform .25s cubic-bezier(.16,1,.3,1);display:block;}
+.fab.fab-plus.open span{transform:rotate(135deg);}
+.fab-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.15);z-index:498;display:none;backdrop-filter:blur(2px);}
+.fab-backdrop.open{display:block;}
+.fab-menu{position:fixed;bottom:90px;right:22px;display:none;flex-direction:column;gap:10px;z-index:499;align-items:flex-end;}
+.fab-menu.open{display:flex;animation:fabIn .25s cubic-bezier(.16,1,.3,1);}
+@keyframes fabIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.fab-action{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--brd);border-radius:99px;padding:11px 20px;font-size:13px;font-weight:600;color:var(--txt);cursor:pointer;box-shadow:0 6px 18px rgba(15,23,42,.18);font-family:inherit;white-space:nowrap;transition:all .15s;}
+.fab-action:hover{background:var(--card2);transform:translateX(-3px);border-color:var(--ford);}
+.fab-action .fab-ico{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--ford),var(--ford-dk));color:#fff;font-size:14px;flex-shrink:0;}
+.fab-action.back{background:var(--card2);font-weight:500;color:var(--txt3);font-size:12px;padding:8px 14px;}
+.fab-action.back .fab-ico{background:none;color:var(--txt3);font-size:14px;width:auto;height:auto;}
 body.dark .sidebar{background:#0F172A;border-color:#1E293B;}
 body.dark .main-head,.dark .tabs-row{background:#0F172A;border-color:#1E293B;}
 body.dark .tabs-row{background:#0F172A;border-color:#1E293B;}
@@ -2083,7 +2096,18 @@ window.addEventListener('load',function(){
     <button class="tab-btn" id="t-cfg" onclick="switchTab('cfg')" style="flex:0 0 auto;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
   </div>
   <div id="global-filter-bar" style="display:none;padding:6px 12px;background:var(--ford-lt);border-bottom:1px solid #BFDBFE;display:flex;align-items:center;gap:8px;font-size:11px;"><span style="color:var(--ford);font-weight:600;">🔎 Filtre actif :</span><span id="gfb-vendeur" style="display:none;background:var(--ford);color:#fff;padding:2px 10px;border-radius:99px;"></span><span id="gfb-period" style="display:none;background:var(--amb);color:#fff;padding:2px 10px;border-radius:99px;"></span><button onclick="clearGlobalFilters()" style="margin-left:auto;font-size:11px;padding:2px 8px;border-radius:6px;border:1px solid var(--ford);background:transparent;color:var(--ford);cursor:pointer;font-family:inherit;">✕ Effacer</button></div><div class="panels"><div id="p-brief"></div><div id="p-aff" style="display:none;"></div><div id="p-rel" style="display:none;"></div><div id="p-agenda" style="display:none;"></div><div id="p-cal" style="display:none;"></div><div id="p-kanban" style="display:none;"></div><div id="p-stats" style="display:none;"></div><div id="p-dash" style="display:none;"></div><div id="p-kpi" style="display:none;"></div><div id="p-cfg" style="display:none;"></div></div>
-  <button id="fab-btn" onclick="fabNewDeal()" class="fab">Nouvelle affaire</button>
+  <button id="fab-btn" onclick="fabToggle()" class="fab fab-plus" title="Nouvelle action"><span>+</span></button>
+  <div id="fab-backdrop" class="fab-backdrop" onclick="fabClose()"></div>
+  <div id="fab-menu-main" class="fab-menu">
+    <button class="fab-action" onclick="fabPick('affaire')"><span class="fab-ico">🚗</span>Nouvelle affaire</button>
+    <button class="fab-action" onclick="fabShowSub()"><span class="fab-ico">📅</span>Rendez-vous</button>
+  </div>
+  <div id="fab-menu-rdv" class="fab-menu">
+    <button class="fab-action" onclick="fabPick('rdv-tel')"><span class="fab-ico">📞</span>RDV téléphone</button>
+    <button class="fab-action" onclick="fabPick('rdv-rel')"><span class="fab-ico">📅</span>Nouvelle relance</button>
+    <button class="fab-action" onclick="fabPick('rdv-tard')"><span class="fab-ico">🕐</span>RDV plus tard (6 mois)</button>
+    <button class="fab-action back" onclick="fabBack()"><span class="fab-ico">←</span>Retour</button>
+  </div>
 </div>
 
 </div>
@@ -2116,8 +2140,8 @@ window.addEventListener('load',function(){
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
         </div>
         <div>
-          <div style="font-size:15px;font-weight:700;letter-spacing:-.01em;">Nouvelle affaire</div>
-          <div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:1px;">Renseigner les informations du client et du véhicule</div>
+          <div data-modal-title style="font-size:15px;font-weight:700;letter-spacing:-.01em;">Nouvelle affaire</div>
+          <div data-modal-subtitle style="font-size:11px;color:rgba(255,255,255,.75);margin-top:1px;">Renseigner les informations du client et du véhicule</div>
         </div>
       </div>
       <button onclick="closeDealModal()" style="width:30px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;font-family:inherit;font-size:15px;transition:all .15s;" onmouseover="this.style.background='rgba(255,255,255,.2)'" onmouseout="this.style.background='rgba(255,255,255,.1)'">✕</button>
@@ -3086,7 +3110,7 @@ function addDeal(){
     montant:document.getElementById('nd-rep-amt')?.value||'',
     note:document.getElementById('nd-rep-note')?.value||''
   }:null;
-  const relType=RT()[0]||'Relance tél.';
+  const relType=(window._ndPreset && window._ndPreset.relType) || RT()[0] || 'Relance tél.';
   const aEssai=document.getElementById('nd-kpi-essai')?.checked||false;
   deals.push({id:nId,date:dealDate,vendeur:vendN,client,
     typeClient,nom,prenom,entreprise,tel,email,
@@ -3105,6 +3129,7 @@ function addDeal(){
     if(hasReprise) sv(vi,curDate,'reprise',gv(vi,curDate,'reprise')+1);
   }
   _ndVehicules=[];
+  window._ndPreset=null; // reset preset
   closeDealModal();invalidateRelCache();save();render();
   showToastMsg('\u2713 Affaire créée \u2014 '+client+' / '+vehiculeDisplay({vehicules}));
 }
@@ -3133,11 +3158,50 @@ function delDeal(id){
   );
 }
 
-// ── FAB Nouvelle affaire ──────────────────────────────
-function fabNewDeal(){
-  if(tab!=='aff')switchTab('aff');
-  setTimeout(()=>openDealModal(),50);
+// ── FAB Nouvelle affaire / Rendez-vous ──────────────────────────────
+function fabToggle(){
+  const main = document.getElementById('fab-menu-main');
+  const sub  = document.getElementById('fab-menu-rdv');
+  const back = document.getElementById('fab-backdrop');
+  const btn  = document.getElementById('fab-btn');
+  const isOpen = main.classList.contains('open') || sub.classList.contains('open');
+  if(isOpen){ fabClose(); return; }
+  main.classList.add('open');
+  sub.classList.remove('open');
+  back.classList.add('open');
+  btn.classList.add('open');
 }
+function fabClose(){
+  document.getElementById('fab-menu-main').classList.remove('open');
+  document.getElementById('fab-menu-rdv').classList.remove('open');
+  document.getElementById('fab-backdrop').classList.remove('open');
+  document.getElementById('fab-btn').classList.remove('open');
+}
+function fabShowSub(){
+  document.getElementById('fab-menu-main').classList.remove('open');
+  document.getElementById('fab-menu-rdv').classList.add('open');
+}
+function fabBack(){
+  document.getElementById('fab-menu-rdv').classList.remove('open');
+  document.getElementById('fab-menu-main').classList.add('open');
+}
+function fabPick(action){
+  fabClose();
+  let preset = null;
+  if(action==='affaire'){
+    preset = null; // par défaut
+  } else if(action==='rdv-tel'){
+    preset = {relOffsetDays:3, relType:'Relance tél.', title:'📞 RDV téléphone'};
+  } else if(action==='rdv-rel'){
+    preset = {relOffsetDays:7, relType:'Relance tél.', title:'📅 Nouvelle relance'};
+  } else if(action==='rdv-tard'){
+    preset = {relOffsetMonths:6, relType:'Relance tél.', title:'🕐 RDV plus tard'};
+  }
+  if(tab!=='aff') switchTab('aff');
+  setTimeout(function(){ openDealModal(preset); }, 50);
+}
+// Compatibilité ancien appel direct
+function fabNewDeal(){ fabPick('affaire'); }
 function updateFAB(){
   const fab=document.getElementById('fab-btn');
   if(fab)fab.style.display=['cfg','stats','kpi'].includes(tab)?'none':'flex';
@@ -9207,13 +9271,40 @@ function saveEditModal(id){
   save();closeEditModal();refreshDealDetail();renderDealList();showToastMsg('\u2713 Affaire modifi\u00e9e');
 }
 
-function openDealModal(){
+function openDealModal(preset){
+  preset = preset || {};
   const isTeam=selV===TEAM_IDX;
   const vendNForm=isTeam?V[0]:V[selV];
   _ndVehicules=[];
   const body=document.getElementById('deal-modal-body');
   if(!body)return;
-  const relDate=nextWorkdayFor(curDate,3,vendNForm);
+  // 🎯 Calcul date de relance selon preset
+  let relDate;
+  if(preset.relOffsetMonths){
+    var dt = new Date(curDate+'T12:00:00');
+    dt.setMonth(dt.getMonth()+preset.relOffsetMonths);
+    relDate = nextWorkdayFor(dt.toISOString().slice(0,10), 0, vendNForm);
+  } else if(preset.relOffsetDays){
+    relDate = nextWorkdayFor(curDate, preset.relOffsetDays, vendNForm);
+  } else {
+    relDate = nextWorkdayFor(curDate,3,vendNForm);
+  }
+  // 🎯 Stocker preset pour addDeal
+  window._ndPreset = preset;
+  // 🎯 Personnaliser le header de la modale
+  const modalTitle = preset.title || 'Nouvelle affaire';
+  var hdrEl = document.querySelector('#deal-modal [data-modal-title]');
+  if(hdrEl) hdrEl.textContent = modalTitle;
+  var subEl = document.querySelector('#deal-modal [data-modal-subtitle]');
+  if(subEl){
+    if(preset.relOffsetMonths){
+      subEl.textContent = 'Affaire visible dès maintenant, rappel programmé dans '+preset.relOffsetMonths+' mois';
+    } else if(preset.relOffsetDays){
+      subEl.textContent = 'Affaire créée avec rappel à J+'+preset.relOffsetDays;
+    } else {
+      subEl.textContent = 'Renseigner les informations du client et du véhicule';
+    }
+  }
   const vendRow=isTeam?('<div class="field"><label class="label">Vendeur *</label><select id="nd-vend" style="width:100%;">'+V.map(v=>'<option>'+v+'</option>').join('')+'</select></div>'):'';
   const gridCols=isTeam?'1fr 1fr':'1fr';
   const mods=MODELES().map(m=>'<option value="'+m+'">'+m+'</option>').join('');
