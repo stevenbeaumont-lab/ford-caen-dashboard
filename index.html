@@ -1256,6 +1256,421 @@ function fcDeleteAnnonce(){
 setTimeout(fcLoadAnnonce, 2000);
 setInterval(fcLoadAnnonce, 60000); // refresh toutes les minutes
 
+// ============================================
+// 🏆 SYSTÈME DE BADGES (calculés à la volée)
+// ============================================
+window.FC_BADGES_DEFS = [
+  {id:'premiere_vente', emoji:'🥇', label:'Première vente', desc:'Au moins 1 vente enregistrée', color:'#f59e0b'},
+  {id:'sur_le_feu',     emoji:'🔥', label:'Sur le feu',     desc:'3+ ventes sur les 7 derniers jours', color:'#ef4444'},
+  {id:'top_mois',       emoji:'💎', label:'Top du mois',    desc:'Numéro 1 du classement mensuel', color:'#06b6d4'},
+  {id:'objectif_mois',  emoji:'🚀', label:'Objectif atteint',desc:'Objectif mensuel franchi',       color:'#10b981'},
+  {id:'top_trimestre',  emoji:'🏅', label:'Champion trimestre',desc:'Top vendeur du trimestre',     color:'#a855f7'},
+  {id:'tireur_elite',   emoji:'🎯', label:'Tireur d\'élite', desc:'Taux de transformation > 50%',   color:'#3b82f6'},
+  {id:'roi_relances',   emoji:'📞', label:'Roi des relances',desc:'Le plus de relances faites ce mois', color:'#8b5cf6'},
+  {id:'sans_perdu',     emoji:'⭐', label:'Sans faute',     desc:'Aucune affaire perdue ce mois (+5 ventes)', color:'#eab308'},
+  {id:'objectif_annee', emoji:'👑', label:'100% annuel',    desc:'Objectif annuel atteint à 100%',  color:'#dc2626'}
+];
+
+function fcGetBadgeDef(id){ return window.FC_BADGES_DEFS.find(b=>b.id===id); }
+
+// Calcule l'ensemble des badges actifs pour un vendeur
+window.fcComputeBadges = function(vendeurName){
+  const badges = [];
+  if(!vendeurName || !window.deals) return badges;
+  
+  const allDeals = window.deals || [];
+  const myDeals = allDeals.filter(d=>d.vendeur===vendeurName);
+  const mySold  = myDeals.filter(d=>d.statut==='Vendu');
+  const myLost  = myDeals.filter(d=>d.statut==='Perdu');
+  
+  // 🥇 Première vente
+  if(mySold.length>=1) badges.push('premiere_vente');
+  
+  // 🔥 Sur le feu : 3+ ventes en 7 jours
+  const now = new Date(window.curDate || new Date().toISOString().slice(0,10));
+  const d7 = new Date(now); d7.setDate(d7.getDate()-7);
+  const dateStr = d=>d.toISOString().slice(0,10);
+  const sold7 = mySold.filter(d=>{
+    const dt = d.dateVente || d.date;
+    return dt >= dateStr(d7) && dt <= dateStr(now);
+  });
+  if(sold7.length>=3) badges.push('sur_le_feu');
+  
+  // 💎 Top du mois : numéro 1 ventes ce mois
+  const curMonth = (window.curDate||'').slice(0,7);
+  const ventesParVendeur = {};
+  allDeals.forEach(d=>{
+    if(d.statut==='Vendu'){
+      const dt = d.dateVente || d.date;
+      if(dt && dt.slice(0,7)===curMonth){
+        ventesParVendeur[d.vendeur] = (ventesParVendeur[d.vendeur]||0)+1;
+      }
+    }
+  });
+  const myMonthSales = ventesParVendeur[vendeurName]||0;
+  const maxMonthSales = Math.max(0, ...Object.values(ventesParVendeur));
+  if(myMonthSales>0 && myMonthSales===maxMonthSales) badges.push('top_mois');
+  
+  // 🚀 Objectif mensuel
+  try{
+    const obj = (typeof getObjVendeur==='function') ? getObjVendeur(vendeurName, curMonth) : null;
+    if(obj && myMonthSales >= obj) badges.push('objectif_mois');
+  }catch(e){}
+  
+  // 🏅 Champion trimestre
+  const q = Math.floor((parseInt(curMonth.slice(5,7),10)-1)/3);
+  const qMonths = [q*3+1, q*3+2, q*3+3].map(m=>String(m).padStart(2,'0'));
+  const year = curMonth.slice(0,4);
+  const ventesQ = {};
+  allDeals.forEach(d=>{
+    if(d.statut==='Vendu'){
+      const dt = d.dateVente || d.date;
+      if(dt && dt.slice(0,4)===year && qMonths.includes(dt.slice(5,7))){
+        ventesQ[d.vendeur] = (ventesQ[d.vendeur]||0)+1;
+      }
+    }
+  });
+  const myQ = ventesQ[vendeurName]||0;
+  const maxQ = Math.max(0, ...Object.values(ventesQ));
+  if(myQ>0 && myQ===maxQ) badges.push('top_trimestre');
+  
+  // 🎯 Tireur d'élite : taux conversion > 50%
+  const finalised = mySold.length + myLost.length;
+  if(finalised>=5 && (mySold.length/finalised)>0.5) badges.push('tireur_elite');
+  
+  // 📞 Roi des relances ce mois
+  let myRelances=0, maxRelances=0;
+  const relancesParV = {};
+  allDeals.forEach(d=>{
+    (d.relances||[]).forEach(r=>{
+      if(r.date && r.date.slice(0,7)===curMonth){
+        relancesParV[d.vendeur] = (relancesParV[d.vendeur]||0)+1;
+      }
+    });
+  });
+  myRelances = relancesParV[vendeurName]||0;
+  maxRelances = Math.max(0, ...Object.values(relancesParV));
+  if(myRelances>0 && myRelances===maxRelances && myRelances>=5) badges.push('roi_relances');
+  
+  // ⭐ Sans faute : aucune perdue ce mois + au moins 5 ventes
+  const lostMonth = myLost.filter(d=>{
+    const dt = d.dateMaj || d.date;
+    return dt && dt.slice(0,7)===curMonth;
+  }).length;
+  if(myMonthSales>=5 && lostMonth===0) badges.push('sans_perdu');
+  
+  // 👑 100% annuel
+  try{
+    let totalYear=0, objYear=0;
+    for(let m=1;m<=12;m++){
+      const mm = year+'-'+String(m).padStart(2,'0');
+      const o = (typeof getObjVendeur==='function') ? getObjVendeur(vendeurName, mm) : 0;
+      objYear += (o||0);
+    }
+    allDeals.forEach(d=>{
+      if(d.vendeur===vendeurName && d.statut==='Vendu'){
+        const dt = d.dateVente || d.date;
+        if(dt && dt.slice(0,4)===year) totalYear++;
+      }
+    });
+    if(objYear>0 && totalYear>=objYear) badges.push('objectif_annee');
+  }catch(e){}
+  
+  return badges;
+};
+
+// Mini-affichage : ligne de badges compacte
+window.fcRenderBadgesLine = function(vendeurName, maxShow){
+  maxShow = maxShow || 5;
+  const ids = fcComputeBadges(vendeurName);
+  if(!ids.length) return '<span style="font-size:10px;color:var(--txt3);font-style:italic;">Aucun badge</span>';
+  const shown = ids.slice(0, maxShow);
+  const more  = ids.length - shown.length;
+  let h = '<div style="display:inline-flex;gap:4px;flex-wrap:wrap;align-items:center;">';
+  shown.forEach(id=>{
+    const b = fcGetBadgeDef(id); if(!b) return;
+    h += '<span title="'+escapeHtml(b.label)+' — '+escapeHtml(b.desc)+'" style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:99px;background:'+b.color+'18;border:1px solid '+b.color+'40;font-size:11px;font-weight:600;color:'+b.color+';">'+b.emoji+'</span>';
+  });
+  if(more>0) h += '<span style="font-size:10px;color:var(--txt3);font-weight:600;padding:2px 6px;">+'+more+'</span>';
+  h += '</div>';
+  return h;
+};
+
+// Galerie complète des badges (modale ou section)
+window.fcRenderBadgesGallery = function(vendeurName){
+  const earned = fcComputeBadges(vendeurName);
+  const earnedSet = new Set(earned);
+  let h = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;">';
+  window.FC_BADGES_DEFS.forEach(b=>{
+    const has = earnedSet.has(b.id);
+    h += '<div style="padding:14px;border-radius:12px;border:1.5px solid '+(has?b.color:'var(--brd)')+';background:'+(has?'linear-gradient(135deg,'+b.color+'15,'+b.color+'05)':'var(--card2)')+';display:flex;align-items:flex-start;gap:10px;'+(has?'box-shadow:0 2px 8px '+b.color+'25;':'opacity:.55;')+'">';
+    h += '<div style="font-size:28px;line-height:1;filter:'+(has?'none':'grayscale(80%)')+';">'+b.emoji+'</div>';
+    h += '<div style="flex:1;min-width:0;">';
+    h += '<div style="font-size:12px;font-weight:700;color:'+(has?b.color:'var(--txt2)')+';margin-bottom:3px;">'+escapeHtml(b.label)+(has?' ✓':'')+'</div>';
+    h += '<div style="font-size:10.5px;color:var(--txt3);line-height:1.35;">'+escapeHtml(b.desc)+'</div>';
+    h += '</div></div>';
+  });
+  h += '</div>';
+  h += '<div style="margin-top:12px;font-size:11px;color:var(--txt3);text-align:center;">'+earned.length+'/'+window.FC_BADGES_DEFS.length+' badges débloqués</div>';
+  return h;
+};
+
+window.fcOpenBadgesModal = function(vendeurName){
+  let m = document.getElementById('fc-badges-modal');
+  if(m) m.remove();
+  m = document.createElement('div');
+  m.id = 'fc-badges-modal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);';
+  m.onclick = function(e){ if(e.target===m) m.remove(); };
+  m.innerHTML = `
+    <div style="background:var(--card);border:1px solid var(--brd);border-radius:16px;max-width:680px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 50px rgba(15,23,42,.3);">
+      <div style="background:linear-gradient(135deg,#f59e0b,#dc2626);padding:18px 20px;color:#fff;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:28px;">🏆</span>
+        <div style="flex:1;"><div style="font-size:17px;font-weight:700;">Badges de ${escapeHtml(vendeurName)}</div><div style="font-size:11px;opacity:.9;">Reconnaissance des performances</div></div>
+        <button onclick="document.getElementById('fc-badges-modal').remove()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:18px;font-family:inherit;">×</button>
+      </div>
+      <div style="padding:20px;overflow-y:auto;flex:1;">${fcRenderBadgesGallery(vendeurName)}</div>
+    </div>`;
+  document.body.appendChild(m);
+};
+
+// ============================================
+// 💬 SYSTÈME DE COMMENTAIRES SUR AFFAIRES (Supabase)
+// ============================================
+window.FC_COMMENTS_CACHE = {}; // {dealId: [{id, vendeur, message, created_at}]}
+
+function fcLoadCommentsForDeal(dealId, callback){
+  try{
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET','https://xhedsjsnurmjtgdsaiwf.supabase.co/rest/v1/commentaires?deal_id=eq.'+encodeURIComponent(dealId)+'&order=created_at.asc&select=*',true);
+    xhr.setRequestHeader('apikey','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhoZWRzanNudXJtanRnZHNhaXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjgzNjYsImV4cCI6MjA5NjYwNDM2Nn0.L0nLTKwzH2tjjUsIDZ-9w90Xs3YFXaVhxTu5fHZea0s');
+    xhr.setRequestHeader('Authorization','Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhoZWRzanNudXJtanRnZHNhaXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjgzNjYsImV4cCI6MjA5NjYwNDM2Nn0.L0nLTKwzH2tjjUsIDZ-9w90Xs3YFXaVhxTu5fHZea0s');
+    xhr.onload = function(){
+      if(xhr.status===200){
+        window.FC_COMMENTS_CACHE[dealId] = JSON.parse(xhr.responseText||'[]');
+        if(callback) callback();
+      }
+    };
+    xhr.send();
+  }catch(e){console.log('comments load err',e);}
+}
+
+window.fcAddComment = function(dealId){
+  const inp = document.getElementById('fc-comment-input-'+dealId);
+  if(!inp) return;
+  const msg = inp.value.trim();
+  if(!msg) return;
+  const user = window.FC_USER || {name:'Anonyme', role:'vendeur'};
+  
+  const payload = {
+    id: 'cm_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
+    deal_id: String(dealId),
+    vendeur: user.name,
+    role: user.role,
+    message: msg,
+    created_at: new Date().toISOString()
+  };
+  
+  // Optimistic UI
+  if(!window.FC_COMMENTS_CACHE[dealId]) window.FC_COMMENTS_CACHE[dealId] = [];
+  window.FC_COMMENTS_CACHE[dealId].push(payload);
+  inp.value='';
+  fcRenderCommentsSection(dealId);
+  
+  try{
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST','https://xhedsjsnurmjtgdsaiwf.supabase.co/rest/v1/commentaires',true);
+    xhr.setRequestHeader('apikey','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhoZWRzanNudXJtanRnZHNhaXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjgzNjYsImV4cCI6MjA5NjYwNDM2Nn0.L0nLTKwzH2tjjUsIDZ-9w90Xs3YFXaVhxTu5fHZea0s');
+    xhr.setRequestHeader('Authorization','Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhoZWRzanNudXJtanRnZHNhaXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjgzNjYsImV4cCI6MjA5NjYwNDM2Nn0.L0nLTKwzH2tjjUsIDZ-9w90Xs3YFXaVhxTu5fHZea0s');
+    xhr.setRequestHeader('Content-Type','application/json');
+    xhr.send(JSON.stringify(payload));
+  }catch(e){}
+};
+
+window.fcDeleteComment = function(dealId, commentId){
+  if(!confirm('Supprimer ce commentaire ?')) return;
+  // Local
+  if(window.FC_COMMENTS_CACHE[dealId]){
+    window.FC_COMMENTS_CACHE[dealId] = window.FC_COMMENTS_CACHE[dealId].filter(c=>c.id!==commentId);
+    fcRenderCommentsSection(dealId);
+  }
+  try{
+    const xhr = new XMLHttpRequest();
+    xhr.open('DELETE','https://xhedsjsnurmjtgdsaiwf.supabase.co/rest/v1/commentaires?id=eq.'+encodeURIComponent(commentId),true);
+    xhr.setRequestHeader('apikey','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhoZWRzanNudXJtanRnZHNhaXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjgzNjYsImV4cCI6MjA5NjYwNDM2Nn0.L0nLTKwzH2tjjUsIDZ-9w90Xs3YFXaVhxTu5fHZea0s');
+    xhr.setRequestHeader('Authorization','Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhoZWRzanNudXJtanRnZHNhaXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjgzNjYsImV4cCI6MjA5NjYwNDM2Nn0.L0nLTKwzH2tjjUsIDZ-9w90Xs3YFXaVhxTu5fHZea0s');
+    xhr.send();
+  }catch(e){}
+};
+
+window.fcRenderCommentsSection = function(dealId){
+  const container = document.getElementById('fc-comments-list-'+dealId);
+  if(!container) return;
+  const list = window.FC_COMMENTS_CACHE[dealId] || [];
+  if(!list.length){
+    container.innerHTML = '<div style="font-size:11px;color:var(--txt3);font-style:italic;text-align:center;padding:14px;">Aucun commentaire pour le moment</div>';
+    return;
+  }
+  const me = (window.FC_USER||{}).name || '';
+  const isAdmin = (window.FC_USER||{}).role === 'admin';
+  
+  container.innerHTML = list.map(c=>{
+    const isMe = c.vendeur === me;
+    const canDelete = isMe || isAdmin;
+    const col = (typeof vColor==='function') ? vColor(c.vendeur||'') : '#003078';
+    const initials = (c.vendeur||'?').split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
+    const dt = new Date(c.created_at);
+    const dtStr = dt.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})+' '+dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    const isAdminMsg = c.role === 'admin';
+    return '<div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--brd);">'
+      +'<div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,'+col+','+col+'CC);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:700;flex-shrink:0;">'+initials+'</div>'
+      +'<div style="flex:1;min-width:0;">'
+      +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;flex-wrap:wrap;">'
+      +'<span style="font-size:11.5px;font-weight:700;color:var(--txt);">'+escapeHtml(c.vendeur)+'</span>'
+      +(isAdminMsg?'<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:99px;background:linear-gradient(135deg,#003078,#0066cc);color:#fff;">👑 ADMIN</span>':'')
+      +'<span style="font-size:10px;color:var(--txt3);">'+dtStr+'</span>'
+      +(canDelete?'<button onclick="fcDeleteComment(\''+dealId+'\',\''+c.id+'\')" style="margin-left:auto;background:none;border:none;color:var(--txt3);cursor:pointer;font-size:11px;padding:2px 4px;" title="Supprimer">✕</button>':'')
+      +'</div>'
+      +'<div style="font-size:12.5px;color:var(--txt);line-height:1.4;white-space:pre-wrap;">'+escapeHtml(c.message)+'</div>'
+      +'</div></div>';
+  }).join('');
+};
+
+// ============================================
+// 📜 SYSTÈME D'HISTORIQUE DES MODIFICATIONS
+// ============================================
+window.FC_HISTORY_CACHE = {}; // {dealId: [{id, vendeur, action, details, created_at}]}
+
+function fcLogChange(dealId, action, details){
+  if(!dealId) return;
+  const user = window.FC_USER || {name:'Système', role:'vendeur'};
+  const entry = {
+    id: 'h_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),
+    deal_id: String(dealId),
+    vendeur: user.name,
+    role: user.role,
+    action: action,
+    details: typeof details==='string' ? details : JSON.stringify(details||{}),
+    created_at: new Date().toISOString()
+  };
+  
+  // Local
+  if(!window.FC_HISTORY_CACHE[dealId]) window.FC_HISTORY_CACHE[dealId] = [];
+  window.FC_HISTORY_CACHE[dealId].push(entry);
+  
+  // Remote (silencieux)
+  try{
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST','https://xhedsjsnurmjtgdsaiwf.supabase.co/rest/v1/historique',true);
+    xhr.setRequestHeader('apikey','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhoZWRzanNudXJtanRnZHNhaXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjgzNjYsImV4cCI6MjA5NjYwNDM2Nn0.L0nLTKwzH2tjjUsIDZ-9w90Xs3YFXaVhxTu5fHZea0s');
+    xhr.setRequestHeader('Authorization','Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhoZWRzanNudXJtanRnZHNhaXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjgzNjYsImV4cCI6MjA5NjYwNDM2Nn0.L0nLTKwzH2tjjUsIDZ-9w90Xs3YFXaVhxTu5fHZea0s');
+    xhr.setRequestHeader('Content-Type','application/json');
+    xhr.send(JSON.stringify(entry));
+  }catch(e){}
+}
+window.fcLogChange = fcLogChange;
+
+function fcLoadHistoryForDeal(dealId, callback){
+  try{
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET','https://xhedsjsnurmjtgdsaiwf.supabase.co/rest/v1/historique?deal_id=eq.'+encodeURIComponent(dealId)+'&order=created_at.desc&limit=50&select=*',true);
+    xhr.setRequestHeader('apikey','eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhoZWRzanNudXJtanRnZHNhaXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjgzNjYsImV4cCI6MjA5NjYwNDM2Nn0.L0nLTKwzH2tjjUsIDZ-9w90Xs3YFXaVhxTu5fHZea0s');
+    xhr.setRequestHeader('Authorization','Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhoZWRzanNudXJtanRnZHNhaXdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMjgzNjYsImV4cCI6MjA5NjYwNDM2Nn0.L0nLTKwzH2tjjUsIDZ-9w90Xs3YFXaVhxTu5fHZea0s');
+    xhr.onload = function(){
+      if(xhr.status===200){
+        window.FC_HISTORY_CACHE[dealId] = JSON.parse(xhr.responseText||'[]');
+        if(callback) callback();
+      }
+    };
+    xhr.send();
+  }catch(e){}
+}
+
+window.fcRenderHistorySection = function(dealId){
+  const container = document.getElementById('fc-history-list-'+dealId);
+  if(!container) return;
+  const list = window.FC_HISTORY_CACHE[dealId] || [];
+  if(!list.length){
+    container.innerHTML = '<div style="font-size:11px;color:var(--txt3);font-style:italic;text-align:center;padding:14px;">Aucune modification enregistrée</div>';
+    return;
+  }
+  const ACTION_META = {
+    'create':       {ico:'➕', col:'#10b981', label:'Affaire créée'},
+    'statut':       {ico:'🔄', col:'#3b82f6', label:'Statut modifié'},
+    'vendu':        {ico:'✅', col:'#16a34a', label:'Marqué Vendu'},
+    'perdu':        {ico:'❌', col:'#dc2626', label:'Marqué Perdu'},
+    'reporte':      {ico:'📅', col:'#f59e0b', label:'Reporté'},
+    'edit':         {ico:'✏️', col:'#8b5cf6', label:'Modifié'},
+    'relance_add':  {ico:'📞', col:'#06b6d4', label:'Relance ajoutée'},
+    'relance_done': {ico:'✓',  col:'#10b981', label:'Relance traitée'},
+    'note':         {ico:'📝', col:'#64748b', label:'Note ajoutée'},
+    'vehicule':     {ico:'🚗', col:'#3b82f6', label:'Véhicule modifié'},
+    'delete':       {ico:'🗑',  col:'#dc2626', label:'Affaire supprimée'}
+  };
+  
+  container.innerHTML = list.map(h=>{
+    const meta = ACTION_META[h.action] || {ico:'•', col:'var(--txt3)', label:h.action};
+    let det = '';
+    try{
+      const d = typeof h.details==='string' ? JSON.parse(h.details) : h.details;
+      if(d && typeof d==='object'){
+        if(d.field) det = ' · '+d.field;
+        if(d.from !== undefined && d.to !== undefined) det += ' : '+escapeHtml(String(d.from))+' → '+escapeHtml(String(d.to));
+        else if(d.value !== undefined) det = ' · '+escapeHtml(String(d.value));
+        else if(d.note) det = ' · "'+escapeHtml(String(d.note)).slice(0,40)+'"';
+      }
+    }catch(e){ if(h.details) det = ' · '+escapeHtml(String(h.details).slice(0,60)); }
+    
+    const dt = new Date(h.created_at);
+    const dtStr = dt.toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'})+' '+dt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    const isAdmin = h.role === 'admin';
+    return '<div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--brd);font-size:12px;">'
+      +'<div style="width:22px;height:22px;border-radius:50%;background:'+meta.col+'15;color:'+meta.col+';display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">'+meta.ico+'</div>'
+      +'<div style="flex:1;min-width:0;">'
+      +'<div style="font-size:11.5px;color:var(--txt);"><strong>'+meta.label+'</strong>'+det+'</div>'
+      +'<div style="font-size:10px;color:var(--txt3);margin-top:2px;">par <span style="font-weight:600;">'+escapeHtml(h.vendeur||'?')+'</span>'+(isAdmin?' 👑':'')+' · '+dtStr+'</div>'
+      +'</div></div>';
+  }).join('');
+};
+
+// ============================================
+// 🔗 INTÉGRATION : LOGGER LES MODIFS AUTOMATIQUEMENT
+// ============================================
+// Wrap chgStat to log status changes
+(function(){
+  if(window._fcWrappedChgStat) return;
+  window._fcWrappedChgStat = true;
+  const _origChgStat = window.chgStat;
+  if(typeof _origChgStat === 'function'){
+    window.chgStat = function(id, newStat){
+      const d = (window.deals||[]).find(x=>x.id===id);
+      const oldStat = d ? d.statut : null;
+      const result = _origChgStat.apply(this, arguments);
+      if(d && oldStat !== newStat){
+        const action = newStat==='Vendu' ? 'vendu' : (newStat==='Perdu' ? 'perdu' : (newStat==='Reporté' ? 'reporte' : 'statut'));
+        fcLogChange(id, action, {field:'statut', from:oldStat, to:newStat});
+      }
+      return result;
+    };
+  }
+})();
+
+// Wrap addNoteModal pour logger les notes
+(function(){
+  if(window._fcWrappedNote) return;
+  window._fcWrappedNote = true;
+  const _orig = window.addNoteModal;
+  if(typeof _orig === 'function'){
+    window.addNoteModal = function(id){
+      const inp = document.getElementById('note-modal-'+id);
+      const txt = inp ? inp.value.trim() : '';
+      const r = _orig.apply(this, arguments);
+      if(txt) fcLogChange(id, 'note', {note: txt});
+      return r;
+    };
+  }
+})();
+
 // ===== 🤝 GESTION DES VENDEURS (admin uniquement) =====
 function fcOpenLinksModal(){
   if(!window.FC_USER || window.FC_USER.role !== 'admin') return;
@@ -5606,6 +6021,30 @@ function renderVendeurClassement(){
           </div>
         </div>
       </div>
+      
+      <!-- 🏆 Mes badges -->
+      <div class="fc-card" style="background:var(--card);border:1px solid var(--brd);border-radius:16px;padding:18px 22px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:22px;">🏆</span>
+            <div>
+              <div style="font-size:13px;font-weight:800;color:var(--txt);text-transform:uppercase;letter-spacing:.05em;">Mes badges</div>
+              <div style="font-size:11px;color:var(--txt3);">Distinctions débloquées</div>
+            </div>
+          </div>
+          <button onclick="fcOpenBadgesModal('${(myName||'').replace(/'/g,"\\'")}')" style="padding:7px 14px;border-radius:99px;border:none;cursor:pointer;font-size:11px;font-weight:600;background:linear-gradient(135deg,#f59e0b,#dc2626);color:#fff;font-family:inherit;box-shadow:0 2px 8px rgba(245,158,11,.3);">Voir tous →</button>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          ${(function(){
+            const ids = fcComputeBadges(myName);
+            if(!ids.length) return '<span style="font-size:12px;color:var(--txt3);font-style:italic;">Aucun badge pour le moment — vendez votre première voiture pour débloquer 🥇 !</span>';
+            return ids.slice(0,8).map(id=>{
+              const b = fcGetBadgeDef(id); if(!b) return '';
+              return '<div title="'+b.label+' — '+b.desc+'" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:99px;background:'+b.color+'20;border:1.5px solid '+b.color+'50;font-size:12px;font-weight:600;color:'+b.color+';">'+b.emoji+' '+b.label+'</div>';
+            }).join('');
+          })()}
+        </div>
+      </div>
       ` : ''}
       
       <!-- Podium -->
@@ -7847,6 +8286,19 @@ function openDealDetail(id){
   if(!modal)return;
   renderDealDetailModal(d);
   modal.style.display='flex';
+  // Charger commentaires + historique depuis Supabase
+  try{
+    fcLoadCommentsForDeal(id, function(){
+      fcRenderCommentsSection(id);
+      const c = document.getElementById('fc-comments-count-'+id);
+      if(c) c.textContent = (window.FC_COMMENTS_CACHE[id]||[]).length;
+    });
+    fcLoadHistoryForDeal(id, function(){
+      fcRenderHistorySection(id);
+      const c = document.getElementById('fc-history-count-'+id);
+      if(c) c.textContent = (window.FC_HISTORY_CACHE[id]||[]).length;
+    });
+  }catch(e){console.log('load comments/history err',e);}
 }
 function closeDealDetail(){
   const m=document.getElementById('deal-detail-modal');
@@ -8420,10 +8872,29 @@ function renderDealDetailModal(d){
     +'<div style="padding:14px 18px;border-bottom:0.5px solid var(--brd);">'
     +'<div style="font-size:10px;font-weight:500;color:var(--txt3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Relances <span style="font-size:10px;background:var(--card2);border:0.5px solid var(--brd);padding:1px 6px;border-radius:99px;text-transform:none;letter-spacing:0;font-weight:400;">'+rels.length+'</span></div>'
     +relHtml+'</div>'
-    // Historique
+    // Notes du vendeur (anciennement "Historique" - ce sont en fait des notes manuelles)
     +'<div style="padding:12px 18px;border-bottom:0.5px solid var(--brd);">'
-    +'<div style="font-size:10px;font-weight:500;color:var(--txt3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Historique</div>'
+    +'<div style="font-size:10px;font-weight:500;color:var(--txt3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">📝 Notes</div>'
     +notesHtml+'</div>'
+    // 💬 Commentaires équipe
+    +'<div style="padding:12px 18px;border-bottom:0.5px solid var(--brd);">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
+    +'<div style="font-size:10px;font-weight:500;color:var(--txt3);text-transform:uppercase;letter-spacing:.07em;">💬 Commentaires <span id="fc-comments-count-'+d.id+'" style="font-size:10px;background:var(--card2);border:0.5px solid var(--brd);padding:1px 6px;border-radius:99px;text-transform:none;letter-spacing:0;font-weight:400;margin-left:4px;">…</span></div>'
+    +'</div>'
+    +'<div id="fc-comments-list-'+d.id+'" style="margin-bottom:8px;max-height:240px;overflow-y:auto;"><div style="font-size:11px;color:var(--txt3);font-style:italic;text-align:center;padding:14px;">Chargement…</div></div>'
+    +'<div style="display:flex;gap:6px;">'
+    +'<input id="fc-comment-input-'+d.id+'" placeholder="Écrire un commentaire à l\'équipe…" style="flex:1;font-size:12px;padding:7px 11px;border-radius:8px;border:0.5px solid var(--brd);background:var(--card2);color:var(--txt);font-family:inherit;" onkeydown="if(event.key===\'Enter\')fcAddComment(\''+d.id+'\')">'
+    +'<button onclick="fcAddComment(\''+d.id+'\')" style="padding:7px 13px;border-radius:8px;border:0.5px solid #B5D4F4;background:linear-gradient(135deg,#003078,#0066cc);color:#fff;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;font-weight:600;">💬 Envoyer</button>'
+    +'</div>'
+    +'</div>'
+    // 📜 Historique des modifications
+    +'<div style="padding:12px 18px;border-bottom:0.5px solid var(--brd);">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="document.getElementById(\'fc-history-list-'+d.id+'\').style.display=document.getElementById(\'fc-history-list-'+d.id+'\').style.display===\'none\'?\'block\':\'none\';">'
+    +'<div style="font-size:10px;font-weight:500;color:var(--txt3);text-transform:uppercase;letter-spacing:.07em;">📜 Historique des modifications <span id="fc-history-count-'+d.id+'" style="font-size:10px;background:var(--card2);border:0.5px solid var(--brd);padding:1px 6px;border-radius:99px;text-transform:none;letter-spacing:0;font-weight:400;margin-left:4px;">…</span></div>'
+    +'<span style="font-size:10px;color:var(--txt3);">▾ déplier</span>'
+    +'</div>'
+    +'<div id="fc-history-list-'+d.id+'" style="display:none;margin-top:8px;max-height:280px;overflow-y:auto;"><div style="font-size:11px;color:var(--txt3);font-style:italic;text-align:center;padding:14px;">Chargement…</div></div>'
+    +'</div>'
     // Footer
     +'<div style="padding:10px 18px;display:flex;align-items:center;gap:8px;background:var(--card2);">'
     +'<input id="note-modal-'+d.id+'" placeholder="Ajouter une note\u2026" style="flex:1;font-size:12px;padding:7px 11px;border-radius:8px;border:0.5px solid var(--brd);background:var(--card);color:var(--txt);" onkeydown="if(event.key===\'Enter\')addNoteModal('+d.id+')">'
