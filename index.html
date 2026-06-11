@@ -2698,13 +2698,12 @@ function renderSaleModalBody(){
 
   // BLOC 2 — Onglets véhicules si ≥2
   function _saleVehCompletion(v){
-    // 💰 Vente comptant = pas de services à compléter
-    if(v.financement==='Comptant') return 2;
     var vpv=_saleData.parVehicule[v.id]||{};
     var filled=0,total=0;
     total++;if(_getOneCareValue(vpv))filled++;
     total++;if(vpv.forfaitLivraison)filled++;
-    total++;if(vpv.assurances)filled++;
+    // 💰 Assurances : ignorées pour comptant
+    if(v.financement!=='Comptant'){ total++;if(vpv.assurances)filled++; }
     if(v.financement==='LOA'||v.financement==='LLD'){total+=2;if(vpv.montantFin)filled++;if(vpv.organismeFin)filled++;}
     if(filled===0)return 0;
     if(filled===total)return 2;
@@ -2741,18 +2740,6 @@ function renderSaleModalBody(){
       +'</div></div>';
   }
 
-  // 💰 Si vente comptant : pas de services à proposer
-  if(curVeh.financement==='Comptant'){
-    h+='<div style="padding:18px;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:10px;display:flex;align-items:center;gap:12px;">'
-      +'<span style="font-size:24px;">💰</span>'
-      +'<div style="flex:1;">'
-      +'<div style="font-size:13px;font-weight:700;color:#92400e;">Vente comptant</div>'
-      +'<div style="font-size:11px;color:#78350f;line-height:1.4;margin-top:2px;">Aucun service à compléter (ni OneCare, ni forfait livraison, ni assurance, ni financement). Vous pouvez confirmer directement.</div>'
-      +'</div></div>';
-    body.innerHTML=h;
-    return;
-  }
-
   // BLOC 4 — OneCare par véhicule (choix unique parmi 4 formules)
   var onecareItems=[
     {k:'mobilite',l:'Compl. Mobilit\u00e9'},
@@ -2779,14 +2766,16 @@ function renderSaleModalBody(){
     +'<span style="font-size:12px;color:'+(flV?'#0C447C':'var(--txt2)')+';font-weight:'+(flV?'600':'500')+';">Forfait livraison complet pour ce v\u00e9hicule</span></label>'
     +'</div>';
 
-  // BLOC 4ter — Assurances par véhicule
-  var assurV=curVPV.assurances||0;
-  var assurVBtns=[1,2,3,4].map(function(n){
-    var sel=(assurV===n);
-    return '<button type="button" onclick="_saleData.parVehicule['+curVeh.id+'].assurances='+(sel?0:n)+';renderSaleModalBody()" style="padding:7px 13px;background:'+(sel?'var(--ford)':'var(--card)')+';border:'+(sel?'1px solid var(--ford)':'0.5px solid var(--brd)')+';border-radius:6px;font-size:12px;color:'+(sel?'#fff':'var(--txt2)')+';cursor:pointer;font-weight:'+(sel?'700':'500')+';font-family:inherit;">'+n+'</button>';
-  }).join('');
-  h+='<div><div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px;">\uD83D\uDEE1\uFE0F Assurances</div>'
-    +'<div style="display:flex;gap:3px;">'+assurVBtns+'</div></div>';
+  // BLOC 4ter — Assurances par véhicule (sauf si Comptant)
+  if(curVeh.financement!=='Comptant'){
+    var assurV=curVPV.assurances||0;
+    var assurVBtns=[1,2,3,4].map(function(n){
+      var sel=(assurV===n);
+      return '<button type="button" onclick="_saleData.parVehicule['+curVeh.id+'].assurances='+(sel?0:n)+';renderSaleModalBody()" style="padding:7px 13px;background:'+(sel?'var(--ford)':'var(--card)')+';border:'+(sel?'1px solid var(--ford)':'0.5px solid var(--brd)')+';border-radius:6px;font-size:12px;color:'+(sel?'#fff':'var(--txt2)')+';cursor:pointer;font-weight:'+(sel?'700':'500')+';font-family:inherit;">'+n+'</button>';
+    }).join('');
+    h+='<div><div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px;">\uD83D\uDEE1\uFE0F Assurances</div>'
+      +'<div style="display:flex;gap:3px;">'+assurVBtns+'</div></div>';
+  }
 
   body.innerHTML=h;
 }
@@ -8383,18 +8372,15 @@ function _getOneCareValue(vpv){
 function isPostVenteIncomplete(d){
   if(!d||d.statut!=='Vendu')return false;
   var pv=d.postVente;
-  var vehs=getVehicules(d);if(!vehs.length)vehs=[{id:0,financement:d.financement||'Comptant'}];
-  // 💰 Si TOUS les véhicules sont en Comptant, jamais incomplet (rien à remplir)
-  var hasFinancedVeh=vehs.some(function(v){return v.financement!=='Comptant';});
-  if(!hasFinancedVeh)return false;
   if(!pv)return true;
-  // Au moins un véhicule (non-comptant) a au moins un champ rempli ?
+  var vehs=getVehicules(d);if(!vehs.length)vehs=[{id:0,financement:d.financement||'Comptant'}];
+  // Au moins un véhicule a au moins un champ rempli ?
   for(var i=0;i<vehs.length;i++){
-    if(vehs[i].financement==='Comptant')continue; // ignoré pour la complétion
     var vpv=(pv.parVehicule&&pv.parVehicule[vehs[i].id])||{};
     if(_getOneCareValue(vpv))return false;
     if(vpv.forfaitLivraison)return false;
-    if(vpv.assurances)return false;
+    // 💰 Assurances : pas de comptabilisation pour comptant
+    if(vehs[i].financement!=='Comptant' && vpv.assurances)return false;
     if(vpv.montantFin||vpv.organismeFin)return false;
   }
   // Legacy : ancien format au niveau racine
@@ -8781,16 +8767,14 @@ function renderDealDetailModal(d){
 
     // Helper : calcule l'état de complétion d'un véhicule (0=vide, 1=partiel, 2=complet)
     function _vehCompletion(v){
-      // 💰 Vente comptant = pas de services à compléter
-      if(v.financement==='Comptant') return 2;
       var vpv=pv.parVehicule[v.id]||{};
       var filled=0,total=0;
       // OneCare (choix unique parmi 4 formules)
       total++;if(_getOneCareValue(vpv))filled++;
       // Forfait livraison
       total++;if(vpv.forfaitLivraison)filled++;
-      // Assurances
-      total++;if(vpv.assurances)filled++;
+      // 💰 Assurances : ignorées pour Comptant (rien à vendre)
+      if(v.financement!=='Comptant'){ total++;if(vpv.assurances)filled++; }
       // Financement si LOA/LLD
       if(v.financement==='LOA'||v.financement==='LLD'){total+=2;if(vpv.montantFin)filled++;if(vpv.organismeFin)filled++;}
       if(filled===0)return 0;
@@ -8831,21 +8815,12 @@ function renderDealDetailModal(d){
         +'</div></div>';
     }
 
-    // 💰 Si Comptant : pas de services à proposer, on affiche juste un badge
-    if(curVeh.financement==='Comptant'){
-      postVHtml+='<div style="padding:18px 14px;display:flex;align-items:center;gap:11px;">'
-        +'<span style="font-size:22px;">💰</span>'
-        +'<div style="flex:1;">'
-        +'<div style="font-size:12px;font-weight:700;color:var(--ford);">Vente comptant</div>'
-        +'<div style="font-size:10.5px;color:var(--txt3);line-height:1.4;margin-top:2px;">Aucun service à compléter (pas de OneCare, ni forfait livraison, ni assurance).</div>'
-        +'</div></div>';
-    } else {
-    // OneCare (par véhicule)
+    // OneCare (par véhicule) — affiché aussi en Comptant (rien à voir avec le financement)
     postVHtml+='<div style="padding:14px 14px 12px 14px;border-bottom:0.5px solid var(--brd);">'
       +'<div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:9px;">\uD83D\uDEE1\uFE0F OneCare</div>'
       +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">'+ocHtml+'</div></div>';
 
-    // Forfait livraison (par véhicule)
+    // Forfait livraison (par véhicule) — affiché aussi en Comptant
     var flV=!!curVehPV.forfaitLivraison;
     postVHtml+='<div style="padding:14px 14px 12px 14px;border-bottom:0.5px solid var(--brd);">'
       +'<div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:9px;">\uD83D\uDE9A Forfait livraison</div>'
@@ -8854,11 +8829,12 @@ function renderDealDetailModal(d){
       +'<span style="font-size:12px;color:'+(flV?'#0C447C':'var(--txt2)')+';font-weight:'+(flV?'600':'500')+';">Forfait livraison complet pour ce v\u00e9hicule</span></label>'
       +'</div>';
 
-    // Assurances (par véhicule)
-    postVHtml+='<div style="padding:14px 14px 14px 14px;">'
-      +'<div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:9px;">\uD83D\uDEE1\uFE0F Assurances</div>'
-      +'<div style="display:flex;gap:3px;">'+assurBtns+'</div></div>';
-    } // fin else (non-Comptant)
+    // Assurances (par véhicule) — masqué en Comptant
+    if(curVeh.financement!=='Comptant'){
+      postVHtml+='<div style="padding:14px 14px 14px 14px;">'
+        +'<div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:9px;">\uD83D\uDEE1\uFE0F Assurances</div>'
+        +'<div style="display:flex;gap:3px;">'+assurBtns+'</div></div>';
+    }
 
     postVHtml+='</div>';
   }
