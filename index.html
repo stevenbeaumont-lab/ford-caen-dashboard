@@ -1636,40 +1636,17 @@ window.fcRenderHistorySection = function(dealId){
 // ============================================
 // 🔗 INTÉGRATION : LOGGER LES MODIFS AUTOMATIQUEMENT
 // ============================================
-// Wrap chgStat to log status changes
-(function(){
-  if(window._fcWrappedChgStat) return;
-  window._fcWrappedChgStat = true;
-  const _origChgStat = window.chgStat;
-  if(typeof _origChgStat === 'function'){
-    window.chgStat = function(id, newStat){
-      const d = (window.deals||[]).find(x=>x.id===id);
-      const oldStat = d ? d.statut : null;
-      const result = _origChgStat.apply(this, arguments);
-      if(d && oldStat !== newStat){
-        const action = newStat==='Vendu' ? 'vendu' : (newStat==='Perdu' ? 'perdu' : (newStat==='Reporté' ? 'reporte' : 'statut'));
-        fcLogChange(id, action, {field:'statut', from:oldStat, to:newStat});
-      }
-      return result;
-    };
-  }
-})();
-
-// Wrap addNoteModal pour logger les notes
-(function(){
-  if(window._fcWrappedNote) return;
-  window._fcWrappedNote = true;
-  const _orig = window.addNoteModal;
-  if(typeof _orig === 'function'){
-    window.addNoteModal = function(id){
-      const inp = document.getElementById('note-modal-'+id);
-      const txt = inp ? inp.value.trim() : '';
-      const r = _orig.apply(this, arguments);
-      if(txt) fcLogChange(id, 'note', {note: txt});
-      return r;
-    };
-  }
-})();
+// Les hooks sont posés après que les fonctions cibles soient définies.
+// On expose une fonction utilitaire que les fonctions existantes appelleront.
+window.fcLogStatusChange = function(dealId, oldStat, newStat){
+  if(!dealId || oldStat === newStat) return;
+  const action = newStat==='Vendu' ? 'vendu' : (newStat==='Perdu' ? 'perdu' : (newStat==='Reporté' ? 'reporte' : 'statut'));
+  fcLogChange(dealId, action, {field:'statut', from:oldStat||'(nouveau)', to:newStat});
+};
+window.fcLogNote = function(dealId, noteText){
+  if(!dealId || !noteText) return;
+  fcLogChange(dealId, 'note', {note: noteText});
+};
 
 // ===== 🤝 GESTION DES VENDEURS (admin uniquement) =====
 function fcOpenLinksModal(){
@@ -2524,6 +2501,8 @@ function confirmOut(){
   if(!deal.notes)deal.notes=[];
   const outcomeLabel={vendu:'Vente conclue 🏆',relance:'Nouvelle relance planifiée',showroom:'RDV showroom programmé 🏢',noreply:'Pas de réponse / Messagerie 📵',refl:'Reporté',perdu:'Affaire perdue'};
   deal.notes.push({date:curDate,time:new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}).replace(':','h'),text:outcomeLabel[_om.out]||_om.out,auto:true});
+  // 📜 Log historique Supabase
+  try{ if(typeof fcLogChange==='function') fcLogChange(_om.dId, 'relance_done', {type:rel.type, outcome:_om.out, label:outcomeLabel[_om.out]||_om.out}); }catch(e){}
   if(_om.out==='vendu'){deal.statut='Vendu';launchConfetti();if(vi>=0)sv(vi,curDate,'ventes',gv(vi,curDate,'ventes')+1);}
   else if(_om.out==='refl'){const _tmpId2=_om.dId;_om={dId:null,rId:null,out:null};invalidateRelCache();save();render();closeOutcomeModal&&closeOutcomeModal();openReportModal(_tmpId2);return;}
   else if(_om.out==='perdu'){deal.statut='Perdu';}
@@ -2696,6 +2675,8 @@ function renderSaleModalBody(){
 
   // BLOC 2 — Onglets véhicules si ≥2
   function _saleVehCompletion(v){
+    // 💰 Vente comptant = pas de services à compléter
+    if(v.financement==='Comptant') return 2;
     var vpv=_saleData.parVehicule[v.id]||{};
     var filled=0,total=0;
     total++;if(_getOneCareValue(vpv))filled++;
@@ -2735,6 +2716,18 @@ function renderSaleModalBody(){
       +'<input type="number" value="'+(curVPV.montantFin||'')+'" onchange="_saleData.parVehicule['+curVeh.id+'].montantFin=this.value" placeholder="Montant \u20AC" style="width:100%;box-sizing:border-box;padding:8px 11px;border:0.5px solid var(--brd);border-radius:7px;font-size:13px;font-weight:600;color:var(--txt);text-align:right;background:var(--card);">'
       +'<select onchange="_saleData.parVehicule['+curVeh.id+'].organismeFin=this.value" style="width:100%;box-sizing:border-box;padding:8px 11px;border:0.5px solid var(--brd);border-radius:7px;font-size:13px;color:var(--txt);background:var(--card);">'+orgOpts+'</select>'
       +'</div></div>';
+  }
+
+  // 💰 Si vente comptant : pas de services à proposer
+  if(curVeh.financement==='Comptant'){
+    h+='<div style="padding:18px;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:10px;display:flex;align-items:center;gap:12px;">'
+      +'<span style="font-size:24px;">💰</span>'
+      +'<div style="flex:1;">'
+      +'<div style="font-size:13px;font-weight:700;color:#92400e;">Vente comptant</div>'
+      +'<div style="font-size:11px;color:#78350f;line-height:1.4;margin-top:2px;">Aucun service à compléter (ni OneCare, ni forfait livraison, ni assurance, ni financement). Vous pouvez confirmer directement.</div>'
+      +'</div></div>';
+    body.innerHTML=h;
+    return;
   }
 
   // BLOC 4 — OneCare par véhicule (choix unique parmi 4 formules)
@@ -2817,6 +2810,8 @@ function chgStat(dId,val){
   let venteAdded=false;const vi=V.indexOf(deal.vendeur);
   if(val==='Vendu'&&old!=='Vendu'){if(vi>=0){sv(vi,curDate,'ventes',gv(vi,curDate,'ventes')+1);venteAdded=true;}}
   if(val!=='Reporté')deal.reportDate=null;
+  // 📜 Log historique
+  try{ if(typeof fcLogStatusChange==='function') fcLogStatusChange(dId, old, val); }catch(e){}
   save();render();refreshDealDetail();
   showUndoToast('Statut : '+val,function(){
     deal.statut=old;deal.reportDate=oldReport;
@@ -8365,10 +8360,14 @@ function _getOneCareValue(vpv){
 function isPostVenteIncomplete(d){
   if(!d||d.statut!=='Vendu')return false;
   var pv=d.postVente;
+  var vehs=getVehicules(d);if(!vehs.length)vehs=[{id:0,financement:d.financement||'Comptant'}];
+  // 💰 Si TOUS les véhicules sont en Comptant, jamais incomplet (rien à remplir)
+  var hasFinancedVeh=vehs.some(function(v){return v.financement!=='Comptant';});
+  if(!hasFinancedVeh)return false;
   if(!pv)return true;
-  var vehs=getVehicules(d);if(!vehs.length)vehs=[{id:0}];
-  // Au moins un véhicule a au moins un champ rempli ?
+  // Au moins un véhicule (non-comptant) a au moins un champ rempli ?
   for(var i=0;i<vehs.length;i++){
+    if(vehs[i].financement==='Comptant')continue; // ignoré pour la complétion
     var vpv=(pv.parVehicule&&pv.parVehicule[vehs[i].id])||{};
     if(_getOneCareValue(vpv))return false;
     if(vpv.forfaitLivraison)return false;
@@ -8759,6 +8758,8 @@ function renderDealDetailModal(d){
 
     // Helper : calcule l'état de complétion d'un véhicule (0=vide, 1=partiel, 2=complet)
     function _vehCompletion(v){
+      // 💰 Vente comptant = pas de services à compléter
+      if(v.financement==='Comptant') return 2;
       var vpv=pv.parVehicule[v.id]||{};
       var filled=0,total=0;
       // OneCare (choix unique parmi 4 formules)
@@ -8807,6 +8808,15 @@ function renderDealDetailModal(d){
         +'</div></div>';
     }
 
+    // 💰 Si Comptant : pas de services à proposer, on affiche juste un badge
+    if(curVeh.financement==='Comptant'){
+      postVHtml+='<div style="padding:18px 14px;display:flex;align-items:center;gap:11px;">'
+        +'<span style="font-size:22px;">💰</span>'
+        +'<div style="flex:1;">'
+        +'<div style="font-size:12px;font-weight:700;color:var(--ford);">Vente comptant</div>'
+        +'<div style="font-size:10.5px;color:var(--txt3);line-height:1.4;margin-top:2px;">Aucun service à compléter (pas de OneCare, ni forfait livraison, ni assurance).</div>'
+        +'</div></div>';
+    } else {
     // OneCare (par véhicule)
     postVHtml+='<div style="padding:14px 14px 12px 14px;border-bottom:0.5px solid var(--brd);">'
       +'<div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:9px;">\uD83D\uDEE1\uFE0F OneCare</div>'
@@ -8825,6 +8835,7 @@ function renderDealDetailModal(d){
     postVHtml+='<div style="padding:14px 14px 14px 14px;">'
       +'<div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:9px;">\uD83D\uDEE1\uFE0F Assurances</div>'
       +'<div style="display:flex;gap:3px;">'+assurBtns+'</div></div>';
+    } // fin else (non-Comptant)
 
     postVHtml+='</div>';
   }
