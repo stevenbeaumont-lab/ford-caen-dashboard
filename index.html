@@ -2104,6 +2104,7 @@ window.addEventListener('load',function(){
   </div>
   <div id="fab-menu-rdv" class="fab-menu">
     <button class="fab-action" onclick="fabPick('rdv-tel')"><span class="fab-ico">📞</span>RDV téléphone</button>
+    <button class="fab-action" onclick="fabPick('rdv-show')"><span class="fab-ico">🏢</span>RDV showroom</button>
     <button class="fab-action" onclick="fabPick('rdv-rel')"><span class="fab-ico">📅</span>Nouvelle relance</button>
     <button class="fab-action" onclick="fabPick('rdv-tard')"><span class="fab-ico">🕐</span>RDV plus tard (6 mois)</button>
     <button class="fab-action back" onclick="fabBack()"><span class="fab-ico">←</span>Retour</button>
@@ -2149,6 +2150,25 @@ window.addEventListener('load',function(){
     <div id="deal-modal-body" style="padding:22px;"></div>
   </div>
 </div>
+
+<!-- 📅 Nouveau Rendez-vous modal (léger, sans véhicule) -->
+<div id="rdv-modal" style="display:none;position:fixed;inset:0;background:rgba(10,14,26,.55);z-index:1060;align-items:flex-start;justify-content:center;padding:40px 16px;backdrop-filter:blur(6px);overflow-y:auto;" onclick="if(event.target===this)closeRdvModal()">
+  <div style="background:var(--card);border:1px solid var(--brd);border-radius:16px;width:100%;max-width:540px;box-shadow:0 20px 50px rgba(15,23,42,.25);margin:auto;overflow:hidden;">
+    <!-- Header gradient -->
+    <div id="rdv-modal-header" style="padding:18px 22px;background:linear-gradient(135deg,#003078,#0066cc);color:#fff;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:2;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div id="rdv-modal-ico" style="width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;">📅</div>
+        <div>
+          <div id="rdv-modal-title" style="font-size:15px;font-weight:700;letter-spacing:-.01em;">Nouveau rendez-vous</div>
+          <div id="rdv-modal-sub" style="font-size:11px;color:rgba(255,255,255,.75);margin-top:1px;">Prospection en cours — projet à préciser</div>
+        </div>
+      </div>
+      <button onclick="closeRdvModal()" style="width:30px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;font-family:inherit;font-size:15px;">✕</button>
+    </div>
+    <div id="rdv-modal-body" style="padding:20px;"></div>
+  </div>
+</div>
+
 <!-- Mini-modal Nouvelle relance -->
 <div id="add-relance-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1300;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(4px);" onclick="if(event.target===this)closeAddRelModal()">
   <div style="background:var(--card);border-radius:12px;width:100%;max-width:420px;box-shadow:0 16px 48px rgba(0,0,0,.2);overflow:hidden;">
@@ -3134,6 +3154,171 @@ function addDeal(){
   showToastMsg('\u2713 Affaire créée \u2014 '+client+' / '+vehiculeDisplay({vehicules}));
 }
 
+// ============================================
+// 📅 NOUVEAU RENDEZ-VOUS (fiche allégée prospection)
+// ============================================
+window._rdvCfg = null;
+window._rdvTypeClient = 'part';
+
+function openRdvModal(cfg){
+  window._rdvCfg = cfg;
+  // Type de client par défaut = celui du vendeur connecté
+  const isTeam = (typeof selV!=='undefined' && selV===TEAM_IDX);
+  const vendNForm = isTeam ? V[0] : V[selV];
+  const defaultType = (typeof getVendeurTypeClient==='function') ? getVendeurTypeClient(vendNForm) : 'part';
+  window._rdvTypeClient = defaultType;
+  
+  // Date par défaut selon le type de RDV
+  let defaultDate;
+  if(cfg.offsetMonths){
+    var dt = new Date(curDate+'T12:00:00');
+    dt.setMonth(dt.getMonth()+cfg.offsetMonths);
+    defaultDate = nextWorkdayFor(dt.toISOString().slice(0,10), 0, vendNForm);
+  } else {
+    defaultDate = nextWorkdayFor(curDate, cfg.offsetDays||3, vendNForm);
+  }
+  
+  // Header
+  document.getElementById('rdv-modal-title').textContent = cfg.title;
+  document.getElementById('rdv-modal-sub').textContent = cfg.sub;
+  document.getElementById('rdv-modal-ico').textContent = cfg.ico;
+  
+  const srcs = '<option value="">— Source —</option>' + RDV_SOURCES().map(s=>'<option>'+s+'</option>').join('');
+  const vendRow = isTeam ? ('<div class="field" style="margin:0;"><label class="label">Vendeur *</label><select id="rdv-vend" style="width:100%;">'+V.map(v=>'<option>'+v+'</option>').join('')+'</select></div>') : '';
+  
+  const dateLbl = (cfg.type==='showroom') ? 'Date du rendez-vous showroom *' : 'Date du rappel *';
+  
+  document.getElementById('rdv-modal-body').innerHTML =
+    '<div style="display:flex;flex-direction:column;gap:14px;">'
+    // Type client toggle
+    + '<div>'
+    + '<div style="display:flex;gap:0;background:var(--card2);border:1px solid var(--brd);border-radius:9px;padding:3px;">'
+    + '<button type="button" id="rdv-tc-part" onclick="rdvSetTypeClient(\'part\')" class="nd-tc-btn'+(defaultType==='part'?' sel':'')+'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Particulier</button>'
+    + '<button type="button" id="rdv-tc-pro" onclick="rdvSetTypeClient(\'pro\')" class="nd-tc-btn'+(defaultType==='pro'?' sel':'')+'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px;"><rect x="4" y="2" width="16" height="20" rx="2"/></svg>Professionnel</button>'
+    + '</div></div>'
+    // Champs particulier
+    + '<div id="rdv-fields-part" style="display:'+(defaultType==='part'?'block':'none')+';">'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
+    + '<div class="field" style="margin:0;"><label class="label">Nom *</label><input id="rdv-nom" placeholder="Dupont" style="width:100%;"></div>'
+    + '<div class="field" style="margin:0;"><label class="label">Prénom</label><input id="rdv-prenom" placeholder="(optionnel)" style="width:100%;"></div>'
+    + '</div></div>'
+    // Champs professionnel
+    + '<div id="rdv-fields-pro" style="display:'+(defaultType==='pro'?'block':'none')+';">'
+    + '<div class="field" style="margin:0;"><label class="label">Nom de l\u2019entreprise *</label><input id="rdv-entreprise" placeholder="SAS Martin\u2026" style="width:100%;"></div>'
+    + '</div>'
+    // Téléphone
+    + '<div class="field" style="margin:0;"><label class="label">Téléphone</label><input id="rdv-tel" placeholder="06 12 34 56 78 (optionnel)" style="width:100%;"></div>'
+    // Vendeur si team
+    + (vendRow ? '<div>'+vendRow+'</div>' : '')
+    // Source
+    + '<div class="field" style="margin:0;"><label class="label">Source du contact</label><select id="rdv-source" style="width:100%;">'+srcs+'</select></div>'
+    // Date du RDV / rappel
+    + '<div class="field" style="margin:0;"><label class="label">'+dateLbl+'</label><input type="date" id="rdv-date" value="'+defaultDate+'" style="width:100%;"></div>'
+    // Commentaire
+    + '<div class="field" style="margin:0;"><label class="label">Commentaire / contexte</label><textarea id="rdv-comment" rows="3" placeholder="Notes sur le contact, le besoin, le projet à venir\u2026" style="width:100%;padding:9px 11px;border:1px solid var(--brd);border-radius:8px;background:var(--card2);color:var(--txt);font-family:inherit;font-size:13px;resize:vertical;"></textarea></div>'
+    // Footer
+    + '<div style="display:flex;gap:8px;justify-content:flex-end;padding-top:6px;border-top:1px solid var(--brd);margin-top:4px;">'
+    + '<button class="btn-o" onclick="closeRdvModal()">Annuler</button>'
+    + '<button onclick="addRdv()" style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;padding:9px 20px 9px 16px;border-radius:9px;border:none;background:linear-gradient(135deg,var(--ford),var(--ford-dk));color:#fff;cursor:pointer;font-family:inherit;box-shadow:0 3px 10px rgba(0,48,120,.25);"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Créer le RDV</button>'
+    + '</div>'
+    + '</div>';
+  
+  document.getElementById('rdv-modal').style.display = 'flex';
+  setTimeout(function(){
+    const fn = document.getElementById(defaultType==='part'?'rdv-nom':'rdv-entreprise');
+    if(fn) fn.focus();
+  }, 60);
+}
+
+function closeRdvModal(){
+  document.getElementById('rdv-modal').style.display = 'none';
+  window._rdvCfg = null;
+}
+
+function rdvSetTypeClient(t){
+  window._rdvTypeClient = t;
+  document.getElementById('rdv-tc-part').classList.toggle('sel', t==='part');
+  document.getElementById('rdv-tc-pro').classList.toggle('sel', t==='pro');
+  document.getElementById('rdv-fields-part').style.display = (t==='part') ? 'block' : 'none';
+  document.getElementById('rdv-fields-pro').style.display  = (t==='pro')  ? 'block' : 'none';
+  setTimeout(function(){
+    const fn = document.getElementById(t==='part'?'rdv-nom':'rdv-entreprise');
+    if(fn) fn.focus();
+  }, 30);
+}
+
+function addRdv(){
+  const cfg = window._rdvCfg;
+  if(!cfg){ closeRdvModal(); return; }
+  const typeClient = window._rdvTypeClient || 'part';
+  let client = '', nom='', prenom='', entreprise='';
+  if(typeClient==='pro'){
+    entreprise = (document.getElementById('rdv-entreprise')?.value || '').trim();
+    if(!entreprise){ showToastMsg('\u26A0 Le nom de l\u2019entreprise est obligatoire','var(--red)'); return; }
+    client = entreprise;
+  } else {
+    nom = (document.getElementById('rdv-nom')?.value || '').trim();
+    prenom = (document.getElementById('rdv-prenom')?.value || '').trim();
+    if(!nom){ showToastMsg('\u26A0 Le nom du client est obligatoire','var(--red)'); return; }
+    client = (prenom ? prenom+' ' : '') + nom;
+  }
+  const tel = (document.getElementById('rdv-tel')?.value || '').trim();
+  const rdvSource = document.getElementById('rdv-source')?.value || '';
+  const commentaire = (document.getElementById('rdv-comment')?.value || '').trim();
+  const rdvDate = document.getElementById('rdv-date')?.value || curDate;
+  const isTeam = (typeof selV!=='undefined' && selV===TEAM_IDX);
+  const vendN = isTeam ? (document.getElementById('rdv-vend')?.value || V[0]) : V[selV];
+  
+  // Création de l'affaire : véhicule "À préciser", financement "Non défini"
+  const nId = nDId++;
+  const placeholder = {id:Date.now(), modele:'À préciser', financement:'Non défini', qty:1};
+  const relNote = cfg.type==='showroom' ? '\uD83C\uDFE2 Rendez-vous au showroom' : '';
+  
+  deals.push({
+    id: nId,
+    date: curDate, // l'affaire apparaît au jour de la création
+    vendeur: vendN,
+    client,
+    typeClient, nom, prenom, entreprise, tel,
+    email: null,
+    vehicule: 'À préciser',
+    financement: 'Non défini',
+    vehicules: [placeholder],
+    statut: 'En cours',
+    commentaire,
+    rdvSource,
+    rdvType: cfg.type, // 'tel' | 'showroom' | 'relance' | 'tard'
+    essai: false,
+    reprise: null,
+    notes: [{
+      date: curDate,
+      time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}).replace(':','h'),
+      text: cfg.title + (commentaire ? ' — '+commentaire : ''),
+      auto: true
+    }],
+    relances: [{
+      id: nRId++,
+      date: rdvDate,
+      type: cfg.relType,
+      note: relNote,
+      statut: TODO
+    }]
+  });
+  
+  // KPI
+  const vi = V.indexOf(vendN);
+  if(vi>=0){
+    sv(vi, curDate, 'appels', gv(vi, curDate, 'appels')+1);
+    if(cfg.type==='showroom') sv(vi, curDate, 'rdv', gv(vi, curDate, 'rdv')+1);
+  }
+  
+  closeRdvModal();
+  invalidateRelCache();
+  save();
+  render();
+  showToastMsg('\u2713 '+cfg.title+' créé — '+client);
+}
+
 // ── Styled delete confirmation ─────────────────────────
 let _delPending=null;
 function showDelModal(title,sub,onConfirm){
@@ -3187,18 +3372,22 @@ function fabBack(){
 }
 function fabPick(action){
   fabClose();
-  let preset = null;
   if(action==='affaire'){
-    preset = null; // par défaut
-  } else if(action==='rdv-tel'){
-    preset = {relOffsetDays:3, relType:'Relance tél.', title:'📞 RDV téléphone'};
-  } else if(action==='rdv-rel'){
-    preset = {relOffsetDays:7, relType:'Relance tél.', title:'📅 Nouvelle relance'};
-  } else if(action==='rdv-tard'){
-    preset = {relOffsetMonths:6, relType:'Relance tél.', title:'🕐 RDV plus tard'};
+    if(tab!=='aff') switchTab('aff');
+    setTimeout(function(){ openDealModal(null); }, 50);
+    return;
   }
+  // Tous les types RDV → modale légère dédiée
+  var rdvConfig = {
+    'rdv-tel':  {type:'tel',      title:'📞 RDV téléphone',    sub:'Rappel programmé à J+3',                                  relType:'Relance tél.',  offsetDays:3,  ico:'📞'},
+    'rdv-show': {type:'showroom', title:'🏢 RDV showroom',     sub:'Rendez-vous prévu au showroom',                            relType:'RDV Showroom',  offsetDays:5,  ico:'🏢'},
+    'rdv-rel':  {type:'relance',  title:'📅 Nouvelle relance', sub:'Rappel programmé à J+7',                                   relType:'Relance tél.',  offsetDays:7,  ico:'📅'},
+    'rdv-tard': {type:'tard',     title:'🕐 RDV plus tard',    sub:'Affaire visible dès maintenant, rappel dans 6 mois',       relType:'Relance tél.',  offsetMonths:6,ico:'🕐'}
+  };
+  var cfg = rdvConfig[action];
+  if(!cfg) return;
   if(tab!=='aff') switchTab('aff');
-  setTimeout(function(){ openDealModal(preset); }, 50);
+  setTimeout(function(){ openRdvModal(cfg); }, 50);
 }
 // Compatibilité ancien appel direct
 function fabNewDeal(){ fabPick('affaire'); }
