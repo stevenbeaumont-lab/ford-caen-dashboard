@@ -2100,14 +2100,7 @@ window.addEventListener('load',function(){
   <div id="fab-backdrop" class="fab-backdrop" onclick="fabClose()"></div>
   <div id="fab-menu-main" class="fab-menu">
     <button class="fab-action" onclick="fabPick('affaire')"><span class="fab-ico">🚗</span>Nouvelle affaire</button>
-    <button class="fab-action" onclick="fabShowSub()"><span class="fab-ico">📅</span>Rendez-vous</button>
-  </div>
-  <div id="fab-menu-rdv" class="fab-menu">
-    <button class="fab-action" onclick="fabPick('rdv-tel')"><span class="fab-ico">📞</span>RDV téléphone</button>
-    <button class="fab-action" onclick="fabPick('rdv-show')"><span class="fab-ico">🏢</span>RDV showroom</button>
-    <button class="fab-action" onclick="fabPick('rdv-rel')"><span class="fab-ico">📅</span>Nouvelle relance</button>
-    <button class="fab-action" onclick="fabPick('rdv-tard')"><span class="fab-ico">🕐</span>RDV plus tard (6 mois)</button>
-    <button class="fab-action back" onclick="fabBack()"><span class="fab-ico">←</span>Retour</button>
+    <button class="fab-action" onclick="fabPick('rdv')"><span class="fab-ico">📅</span>Rendez-vous</button>
   </div>
 </div>
 
@@ -3159,14 +3152,50 @@ function addDeal(){
 // ============================================
 window._rdvCfg = null;
 window._rdvTypeClient = 'part';
+window.RDV_TYPES = {
+  'tel':      {title:'📞 RDV téléphone',    sub:'Rappel programmé à J+3',                              relType:'Relance tél.',  offsetDays:3,  ico:'📞', color:'#0066cc'},
+  'showroom': {title:'🏢 RDV showroom',     sub:'Rendez-vous prévu au showroom',                       relType:'RDV Showroom',  offsetDays:5,  ico:'🏢', color:'#003078'},
+  'relance':  {title:'📅 Nouvelle relance', sub:'Rappel programmé à J+7',                              relType:'Relance tél.',  offsetDays:7,  ico:'📅', color:'#3b82f6'},
+  'tard':     {title:'🕐 RDV plus tard',    sub:'Affaire visible dès maintenant, rappel dans 6 mois',  relType:'Relance tél.',  offsetMonths:6,ico:'🕐', color:'#8b5cf6'}
+};
+
+function _rdvCfgFor(type){
+  var def = window.RDV_TYPES[type] || window.RDV_TYPES['tel'];
+  return Object.assign({type:type}, def);
+}
 
 function openRdvModal(cfg){
+  // cfg peut être null → on prend 'tel' par défaut et on affichera le sélecteur
+  if(!cfg) cfg = _rdvCfgFor('tel');
   window._rdvCfg = cfg;
+  
   // Type de client par défaut = celui du vendeur connecté
   const isTeam = (typeof selV!=='undefined' && selV===TEAM_IDX);
   const vendNForm = isTeam ? V[0] : V[selV];
   const defaultType = (typeof getVendeurTypeClient==='function') ? getVendeurTypeClient(vendNForm) : 'part';
   window._rdvTypeClient = defaultType;
+  
+  // Render initial
+  _rdvRenderHeader();
+  _rdvRenderBody(defaultType, isTeam);
+  
+  document.getElementById('rdv-modal').style.display = 'flex';
+  setTimeout(function(){
+    const fn = document.getElementById(defaultType==='part'?'rdv-nom':'rdv-entreprise');
+    if(fn) fn.focus();
+  }, 60);
+}
+
+function _rdvRenderHeader(){
+  var cfg = window._rdvCfg;
+  document.getElementById('rdv-modal-title').textContent = cfg.title;
+  document.getElementById('rdv-modal-sub').textContent = cfg.sub;
+  document.getElementById('rdv-modal-ico').textContent = cfg.ico;
+}
+
+function _rdvRenderBody(typeClient, isTeam){
+  var cfg = window._rdvCfg;
+  const vendNForm = isTeam ? V[0] : V[selV];
   
   // Date par défaut selon le type de RDV
   let defaultDate;
@@ -3178,44 +3207,68 @@ function openRdvModal(cfg){
     defaultDate = nextWorkdayFor(curDate, cfg.offsetDays||3, vendNForm);
   }
   
-  // Header
-  document.getElementById('rdv-modal-title').textContent = cfg.title;
-  document.getElementById('rdv-modal-sub').textContent = cfg.sub;
-  document.getElementById('rdv-modal-ico').textContent = cfg.ico;
+  // Sélecteur de type — 4 boutons en haut de la modale
+  var typeButtons = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">';
+  Object.keys(window.RDV_TYPES).forEach(function(k){
+    var def = window.RDV_TYPES[k];
+    var sel = (cfg.type===k);
+    typeButtons += '<button type="button" onclick="rdvChangeType(\''+k+'\')" style="padding:10px 6px;border-radius:9px;border:'+(sel?'2px':'1px')+' solid '+(sel?def.color:'var(--brd)')+';background:'+(sel?def.color+'18':'var(--card2)')+';cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all .15s;">'
+      + '<span style="font-size:20px;line-height:1;">'+def.ico+'</span>'
+      + '<span style="font-size:10.5px;font-weight:'+(sel?'700':'500')+';color:'+(sel?def.color:'var(--txt2)')+';text-align:center;line-height:1.2;">'+def.title.replace(/^[^\s]+\s/,'')+'</span>'
+      + '</button>';
+  });
+  typeButtons += '</div>';
   
   const srcs = '<option value="">— Source —</option>' + RDV_SOURCES().map(s=>'<option>'+s+'</option>').join('');
   const vendRow = isTeam ? ('<div class="field" style="margin:0;"><label class="label">Vendeur *</label><select id="rdv-vend" style="width:100%;">'+V.map(v=>'<option>'+v+'</option>').join('')+'</select></div>') : '';
   
   const dateLbl = (cfg.type==='showroom') ? 'Date du rendez-vous showroom *' : 'Date du rappel *';
   
+  // Préserver les valeurs déjà saisies si rerender
+  var prev = {
+    nom: document.getElementById('rdv-nom')?.value || '',
+    prenom: document.getElementById('rdv-prenom')?.value || '',
+    entreprise: document.getElementById('rdv-entreprise')?.value || '',
+    tel: document.getElementById('rdv-tel')?.value || '',
+    source: document.getElementById('rdv-source')?.value || '',
+    comment: document.getElementById('rdv-comment')?.value || '',
+    vend: document.getElementById('rdv-vend')?.value || '',
+    date: document.getElementById('rdv-date')?.value || defaultDate
+  };
+  
   document.getElementById('rdv-modal-body').innerHTML =
     '<div style="display:flex;flex-direction:column;gap:14px;">'
+    // Sélecteur de type
+    + '<div>'
+    + '<div style="font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px;">Type de rendez-vous</div>'
+    + typeButtons
+    + '</div>'
     // Type client toggle
     + '<div>'
     + '<div style="display:flex;gap:0;background:var(--card2);border:1px solid var(--brd);border-radius:9px;padding:3px;">'
-    + '<button type="button" id="rdv-tc-part" onclick="rdvSetTypeClient(\'part\')" class="nd-tc-btn'+(defaultType==='part'?' sel':'')+'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Particulier</button>'
-    + '<button type="button" id="rdv-tc-pro" onclick="rdvSetTypeClient(\'pro\')" class="nd-tc-btn'+(defaultType==='pro'?' sel':'')+'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px;"><rect x="4" y="2" width="16" height="20" rx="2"/></svg>Professionnel</button>'
+    + '<button type="button" id="rdv-tc-part" onclick="rdvSetTypeClient(\'part\')" class="nd-tc-btn'+(typeClient==='part'?' sel':'')+'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Particulier</button>'
+    + '<button type="button" id="rdv-tc-pro" onclick="rdvSetTypeClient(\'pro\')" class="nd-tc-btn'+(typeClient==='pro'?' sel':'')+'"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;vertical-align:-2px;"><rect x="4" y="2" width="16" height="20" rx="2"/></svg>Professionnel</button>'
     + '</div></div>'
     // Champs particulier
-    + '<div id="rdv-fields-part" style="display:'+(defaultType==='part'?'block':'none')+';">'
+    + '<div id="rdv-fields-part" style="display:'+(typeClient==='part'?'block':'none')+';">'
     + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
-    + '<div class="field" style="margin:0;"><label class="label">Nom *</label><input id="rdv-nom" placeholder="Dupont" style="width:100%;"></div>'
-    + '<div class="field" style="margin:0;"><label class="label">Prénom</label><input id="rdv-prenom" placeholder="(optionnel)" style="width:100%;"></div>'
+    + '<div class="field" style="margin:0;"><label class="label">Nom *</label><input id="rdv-nom" placeholder="Dupont" value="'+prev.nom.replace(/"/g,'&quot;')+'" style="width:100%;"></div>'
+    + '<div class="field" style="margin:0;"><label class="label">Prénom</label><input id="rdv-prenom" placeholder="(optionnel)" value="'+prev.prenom.replace(/"/g,'&quot;')+'" style="width:100%;"></div>'
     + '</div></div>'
     // Champs professionnel
-    + '<div id="rdv-fields-pro" style="display:'+(defaultType==='pro'?'block':'none')+';">'
-    + '<div class="field" style="margin:0;"><label class="label">Nom de l\u2019entreprise *</label><input id="rdv-entreprise" placeholder="SAS Martin\u2026" style="width:100%;"></div>'
+    + '<div id="rdv-fields-pro" style="display:'+(typeClient==='pro'?'block':'none')+';">'
+    + '<div class="field" style="margin:0;"><label class="label">Nom de l\u2019entreprise *</label><input id="rdv-entreprise" placeholder="SAS Martin\u2026" value="'+prev.entreprise.replace(/"/g,'&quot;')+'" style="width:100%;"></div>'
     + '</div>'
     // Téléphone
-    + '<div class="field" style="margin:0;"><label class="label">Téléphone</label><input id="rdv-tel" placeholder="06 12 34 56 78 (optionnel)" style="width:100%;"></div>'
+    + '<div class="field" style="margin:0;"><label class="label">Téléphone</label><input id="rdv-tel" placeholder="06 12 34 56 78 (optionnel)" value="'+prev.tel.replace(/"/g,'&quot;')+'" style="width:100%;"></div>'
     // Vendeur si team
     + (vendRow ? '<div>'+vendRow+'</div>' : '')
     // Source
     + '<div class="field" style="margin:0;"><label class="label">Source du contact</label><select id="rdv-source" style="width:100%;">'+srcs+'</select></div>'
     // Date du RDV / rappel
-    + '<div class="field" style="margin:0;"><label class="label">'+dateLbl+'</label><input type="date" id="rdv-date" value="'+defaultDate+'" style="width:100%;"></div>'
+    + '<div class="field" style="margin:0;"><label class="label">'+dateLbl+'</label><input type="date" id="rdv-date" value="'+prev.date+'" style="width:100%;"></div>'
     // Commentaire
-    + '<div class="field" style="margin:0;"><label class="label">Commentaire / contexte</label><textarea id="rdv-comment" rows="3" placeholder="Notes sur le contact, le besoin, le projet à venir\u2026" style="width:100%;padding:9px 11px;border:1px solid var(--brd);border-radius:8px;background:var(--card2);color:var(--txt);font-family:inherit;font-size:13px;resize:vertical;"></textarea></div>'
+    + '<div class="field" style="margin:0;"><label class="label">Commentaire / contexte</label><textarea id="rdv-comment" rows="3" placeholder="Notes sur le contact, le besoin, le projet à venir\u2026" style="width:100%;padding:9px 11px;border:1px solid var(--brd);border-radius:8px;background:var(--card2);color:var(--txt);font-family:inherit;font-size:13px;resize:vertical;">'+prev.comment.replace(/</g,'&lt;')+'</textarea></div>'
     // Footer
     + '<div style="display:flex;gap:8px;justify-content:flex-end;padding-top:6px;border-top:1px solid var(--brd);margin-top:4px;">'
     + '<button class="btn-o" onclick="closeRdvModal()">Annuler</button>'
@@ -3223,11 +3276,46 @@ function openRdvModal(cfg){
     + '</div>'
     + '</div>';
   
-  document.getElementById('rdv-modal').style.display = 'flex';
-  setTimeout(function(){
-    const fn = document.getElementById(defaultType==='part'?'rdv-nom':'rdv-entreprise');
-    if(fn) fn.focus();
-  }, 60);
+  // Restaurer la source/vendeur
+  if(prev.source){ var s=document.getElementById('rdv-source'); if(s) s.value=prev.source; }
+  if(prev.vend){ var v=document.getElementById('rdv-vend'); if(v) v.value=prev.vend; }
+}
+
+function rdvChangeType(newType){
+  // Si même type, ne rien faire
+  if(window._rdvCfg && window._rdvCfg.type===newType) return;
+  // Calculer la nouvelle date par défaut (uniquement si la date n'a pas été modifiée)
+  var oldDate = document.getElementById('rdv-date')?.value;
+  var oldDefault = _rdvDefaultDate(window._rdvCfg);
+  
+  window._rdvCfg = _rdvCfgFor(newType);
+  _rdvRenderHeader();
+  
+  // Si l'utilisateur n'avait pas changé la date depuis le défaut, on met la nouvelle date
+  // Sinon on garde sa saisie
+  var keepDate = (oldDate && oldDate !== oldDefault);
+  
+  // Re-render le body en préservant les valeurs saisies (sauf date si non modifiée)
+  const isTeam = (typeof selV!=='undefined' && selV===TEAM_IDX);
+  const tc = window._rdvTypeClient || 'part';
+  
+  if(!keepDate){
+    // forcer la nouvelle date par défaut en effaçant avant rerender
+    var di = document.getElementById('rdv-date'); if(di) di.value='';
+  }
+  _rdvRenderBody(tc, isTeam);
+}
+
+function _rdvDefaultDate(cfg){
+  if(!cfg) return curDate;
+  const isTeam = (typeof selV!=='undefined' && selV===TEAM_IDX);
+  const vendNForm = isTeam ? V[0] : V[selV];
+  if(cfg.offsetMonths){
+    var dt = new Date(curDate+'T12:00:00');
+    dt.setMonth(dt.getMonth()+cfg.offsetMonths);
+    return nextWorkdayFor(dt.toISOString().slice(0,10), 0, vendNForm);
+  }
+  return nextWorkdayFor(curDate, cfg.offsetDays||3, vendNForm);
 }
 
 function closeRdvModal(){
@@ -3276,7 +3364,7 @@ function addRdv(){
   
   deals.push({
     id: nId,
-    date: curDate, // l'affaire apparaît au jour de la création
+    date: curDate,
     vendeur: vendN,
     client,
     typeClient, nom, prenom, entreprise, tel,
@@ -3287,7 +3375,7 @@ function addRdv(){
     statut: 'En cours',
     commentaire,
     rdvSource,
-    rdvType: cfg.type, // 'tel' | 'showroom' | 'relance' | 'tard'
+    rdvType: cfg.type,
     essai: false,
     reprise: null,
     notes: [{
@@ -3346,29 +3434,17 @@ function delDeal(id){
 // ── FAB Nouvelle affaire / Rendez-vous ──────────────────────────────
 function fabToggle(){
   const main = document.getElementById('fab-menu-main');
-  const sub  = document.getElementById('fab-menu-rdv');
   const back = document.getElementById('fab-backdrop');
   const btn  = document.getElementById('fab-btn');
-  const isOpen = main.classList.contains('open') || sub.classList.contains('open');
-  if(isOpen){ fabClose(); return; }
+  if(main.classList.contains('open')){ fabClose(); return; }
   main.classList.add('open');
-  sub.classList.remove('open');
   back.classList.add('open');
   btn.classList.add('open');
 }
 function fabClose(){
   document.getElementById('fab-menu-main').classList.remove('open');
-  document.getElementById('fab-menu-rdv').classList.remove('open');
   document.getElementById('fab-backdrop').classList.remove('open');
   document.getElementById('fab-btn').classList.remove('open');
-}
-function fabShowSub(){
-  document.getElementById('fab-menu-main').classList.remove('open');
-  document.getElementById('fab-menu-rdv').classList.add('open');
-}
-function fabBack(){
-  document.getElementById('fab-menu-rdv').classList.remove('open');
-  document.getElementById('fab-menu-main').classList.add('open');
 }
 function fabPick(action){
   fabClose();
@@ -3377,17 +3453,17 @@ function fabPick(action){
     setTimeout(function(){ openDealModal(null); }, 50);
     return;
   }
-  // Tous les types RDV → modale légère dédiée
-  var rdvConfig = {
-    'rdv-tel':  {type:'tel',      title:'📞 RDV téléphone',    sub:'Rappel programmé à J+3',                                  relType:'Relance tél.',  offsetDays:3,  ico:'📞'},
-    'rdv-show': {type:'showroom', title:'🏢 RDV showroom',     sub:'Rendez-vous prévu au showroom',                            relType:'RDV Showroom',  offsetDays:5,  ico:'🏢'},
-    'rdv-rel':  {type:'relance',  title:'📅 Nouvelle relance', sub:'Rappel programmé à J+7',                                   relType:'Relance tél.',  offsetDays:7,  ico:'📅'},
-    'rdv-tard': {type:'tard',     title:'🕐 RDV plus tard',    sub:'Affaire visible dès maintenant, rappel dans 6 mois',       relType:'Relance tél.',  offsetMonths:6,ico:'🕐'}
-  };
-  var cfg = rdvConfig[action];
-  if(!cfg) return;
-  if(tab!=='aff') switchTab('aff');
-  setTimeout(function(){ openRdvModal(cfg); }, 50);
+  if(action==='rdv'){
+    if(tab!=='aff') switchTab('aff');
+    setTimeout(function(){ openRdvModal(null); }, 50);
+    return;
+  }
+}
+// Compatibilité ancien appel direct
+function fabNewDeal(){ fabPick('affaire'); }
+function updateFAB(){
+  const fab=document.getElementById('fab-btn');
+  if(fab)fab.style.display=['cfg','stats','kpi'].includes(tab)?'none':'flex';
 }
 // Compatibilité ancien appel direct
 function fabNewDeal(){ fabPick('affaire'); }
