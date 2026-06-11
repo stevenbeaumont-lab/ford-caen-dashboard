@@ -688,14 +688,21 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
         
         var relByDeal = {};
         relances.forEach(function(r){
-          if (!relByDeal[r.deal_id]) relByDeal[r.deal_id] = [];
-          relByDeal[r.deal_id].push({id:r.id,date:r.date,type:r.type,statut:r.statut,commentaire:r.commentaire||'',vendeur:r.vendeur});
+          // 🔧 Forcer les IDs en nombre (Supabase peut les retourner en string)
+          var dId = (typeof r.deal_id === 'string') ? parseInt(r.deal_id,10) : r.deal_id;
+          var rId = (typeof r.id === 'string') ? parseInt(r.id,10) : r.id;
+          if (!relByDeal[dId]) relByDeal[dId] = [];
+          relByDeal[dId].push({id:rId,date:r.date,type:r.type,statut:r.statut,commentaire:r.commentaire||'',vendeur:r.vendeur});
         });
         
         var DB = {};
         stats.forEach(function(s){var i=V.indexOf(s.vendeur);if(i>=0)DB[i+':'+s.date]={ventes:s.ventes||0,appels:s.appels||0,essais:s.essais||0,livraisons:s.livraisons||0,crm:s.crm||0,noreply:s.noreply||0};});
         
-        var dealsArr = dealsRaw.map(function(d){return {id:d.id,date:d.date,vendeur:d.vendeur,client:d.client,vehicule:d.vehicule,financement:d.financement,statut:d.statut,commentaire:d.commentaire||'',relances:relByDeal[d.id]||[],notes:[],archived:d.archived||false,archivedDate:d.archived_date};});
+        var dealsArr = dealsRaw.map(function(d){
+          // 🔧 Forcer l'ID deal en nombre
+          var did = (typeof d.id === 'string') ? parseInt(d.id,10) : d.id;
+          return {id:did,date:d.date,vendeur:d.vendeur,client:d.client,vehicule:d.vehicule,financement:d.financement,statut:d.statut,commentaire:d.commentaire||'',relances:relByDeal[did]||[],notes:[],archived:d.archived||false,archivedDate:d.archived_date};
+        });
         var maxId = dealsArr.reduce(function(m,d){return Math.max(m,d.id||0);},0);
         
         localStorage.setItem('fc_cfg', JSON.stringify(CFG));
@@ -818,11 +825,18 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
       
       var relByDeal = {};
       relances.forEach(function(r){
-        if (!relByDeal[r.deal_id]) relByDeal[r.deal_id] = [];
-        relByDeal[r.deal_id].push({id:r.id,date:r.date,type:r.type,statut:r.statut,commentaire:r.commentaire||'',vendeur:r.vendeur});
+        // 🔧 Forcer les IDs en nombre (Supabase peut les retourner en string)
+        var dId = (typeof r.deal_id === 'string') ? parseInt(r.deal_id,10) : r.deal_id;
+        var rId = (typeof r.id === 'string') ? parseInt(r.id,10) : r.id;
+        if (!relByDeal[dId]) relByDeal[dId] = [];
+        relByDeal[dId].push({id:rId,date:r.date,type:r.type,statut:r.statut,commentaire:r.commentaire||'',vendeur:r.vendeur});
       });
       
-      var dealsArr = dealsRaw.map(function(d){return {id:d.id,date:d.date,vendeur:d.vendeur,client:d.client,vehicule:d.vehicule,financement:d.financement,statut:d.statut,commentaire:d.commentaire||'',relances:relByDeal[d.id]||[],notes:[],archived:d.archived||false,archivedDate:d.archived_date};});
+      var dealsArr = dealsRaw.map(function(d){
+        // 🔧 Forcer l'ID deal en nombre
+        var did = (typeof d.id === 'string') ? parseInt(d.id,10) : d.id;
+        return {id:did,date:d.date,vendeur:d.vendeur,client:d.client,vehicule:d.vehicule,financement:d.financement,statut:d.statut,commentaire:d.commentaire||'',relances:relByDeal[did]||[],notes:[],archived:d.archived||false,archivedDate:d.archived_date};
+      });
       var maxId = dealsArr.reduce(function(m,d){return Math.max(m,d.id||0);},0);
       
       var existing;
@@ -2423,15 +2437,24 @@ function sugg(deal){
 }
 
 function doRel(dId,rId){
-  const deal=deals.find(d=>d.id===dId);const rel=(deal?.relances||[]).find(r=>r.id===rId);if(!deal||!rel)return;
-  _om={dId,rId,out:null};
+  // 🔧 Tolérance string/number : on compare en convertissant des deux côtés
+  const _dId = (typeof dId==='string') ? parseInt(dId,10) : dId;
+  const _rId = (typeof rId==='string') ? parseInt(rId,10) : rId;
+  const deal=deals.find(d=>d.id===_dId || String(d.id)===String(dId));
+  const rel=(deal?.relances||[]).find(r=>r.id===_rId || String(r.id)===String(rId));
+  if(!deal||!rel){
+    console.warn('doRel: deal ou relance introuvable',{dId:dId,rId:rId,dealsCount:deals.length});
+    if(typeof showToastMsg==='function') showToastMsg('⚠ Relance introuvable — recharge la page','var(--amb)');
+    return;
+  }
+  _om={dId:deal.id,rId:rel.id,out:null};
   // Si la relance est un RDV Showroom : ouvrir la modale dédiée "Bilan du RDV showroom"
   if(rel.type==='RDV Showroom'){
-    openShowroomBilanModal(dId,rId);
+    openShowroomBilanModal(deal.id,rel.id);
     return;
   }
   // Toujours utiliser le popup modal
-  _doRelModal(dId,rId,deal,rel);
+  _doRelModal(deal.id,rel.id,deal,rel);
 }
 // Action rapide : ouvre la modale outcome avec un résultat présélectionné
 function quickRelOutcome(dId,rId,outcome,ev){
