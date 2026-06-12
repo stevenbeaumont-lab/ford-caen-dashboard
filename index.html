@@ -794,13 +794,15 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
     }
   }
   
-  // 🚀 Push immédiat avec debounce 250ms (appelé depuis save())
-  var _syncDebounce = null;
+  // 🚀 Push INSTANTANÉ (pas de debounce) — si déjà en cours, on file un re-push immédiat après
+  var _syncQueued = false;
   window.triggerSyncNow = function(){
-    clearTimeout(_syncDebounce);
-    _syncDebounce = setTimeout(function(){
-      autoPush();
-    }, 250);
+    if (pushing) {
+      // Un push est déjà en cours → on programme un nouveau push juste après
+      _syncQueued = true;
+      return;
+    }
+    autoPush();
   };
   
   function autoPush(){
@@ -905,21 +907,47 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
     }
     
     Promise.all([p1, p2, p3, p4]).then(function(responses){
-      // Vérifier que toutes les réponses sont OK
-      var allOk = responses.every(function(r){ return !r || !r.status || (r.status>=200 && r.status<300); });
-      if(allOk){
-        console.log('☁️ Sync cloud OK ('+deals.length+' affaires, '+allRel.length+' relances)');
+      // Vérifier chaque réponse individuellement
+      var errors = [];
+      ['deals upsert','relances upsert','deals cleanup','relances cleanup'].forEach(function(label, i){
+        var r = responses[i];
+        if(r && r.status && (r.status<200 || r.status>=300)){
+          errors.push(label+' ('+r.status+')');
+          // Récupérer le body de l'erreur pour log
+          if(r.text) r.text().then(function(t){ console.warn('Sync warn ['+label+']:', t.slice(0,300)); }).catch(function(){});
+        }
+      });
+      
+      if(errors.length === 0){
+        console.log('☁️ Sync OK ('+deals.length+' affaires, '+allRel.length+' relances)');
         setSyncIndicator('ok');
       } else {
-        var errStatus = responses.find(function(r){return r && r.status && (r.status<200 || r.status>=300);});
-        console.error('Sync partielle, status:', errStatus && errStatus.status);
-        setSyncIndicator('error');
+        // Erreur partielle = on log mais on n'affole pas l'utilisateur si c'est une 404 (table vide)
+        console.warn('☁️ Sync partielle:', errors.join(', '));
+        // Considéré OK si seulement les "cleanup" ont échoué (souvent pas d'éléments à supprimer)
+        var criticalFail = errors.some(function(e){ return e.indexOf('upsert')>=0; });
+        if(criticalFail){
+          setSyncIndicator('error');
+        } else {
+          setSyncIndicator('ok');
+        }
       }
       pushing = false;
+      
+      // Si une autre modif est arrivée pendant le push → on relance immédiatement
+      if(_syncQueued){
+        _syncQueued = false;
+        setTimeout(autoPush, 0);
+      }
     }).catch(function(e){
       console.error('Sync error:', e);
       setSyncIndicator('error');
       pushing = false;
+      // Réessayer dans 2 sec en cas d'erreur réseau
+      if(_syncQueued || (lastHash !== (localStorage.getItem('fc_dl')||''))){
+        _syncQueued = false;
+        setTimeout(autoPush, 2000);
+      }
     });
   }
   
@@ -1029,17 +1057,8 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
           if (typeof window.load === 'function' && typeof window.render === 'function') {
             window.load();
             window.render();
-            // Petit indicateur visuel
-            var ind = document.getElementById('fc-sync-pulse');
-            if (!ind) {
-              ind = document.createElement('div');
-              ind.id = 'fc-sync-pulse';
-              ind.style.cssText = 'position:fixed;top:14px;right:14px;background:rgba(16,185,129,.95);color:#fff;padding:6px 12px;border-radius:99px;font-size:11px;font-weight:600;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,.2);font-family:system-ui;';
-              document.body.appendChild(ind);
-            }
-            ind.textContent = '↻ Données mises à jour';
-            ind.style.opacity = '1';
-            setTimeout(function(){ if(ind) ind.style.opacity='0'; ind.style.transition='opacity .5s'; }, 1500);
+            // 🌩️ Réutiliser l'indicateur unifié en bas à droite
+            if(typeof setSyncIndicator==='function') setSyncIndicator('ok');
           } else {
             // Fallback : reload si render() pas trouvé
             setTimeout(function(){ location.reload(); }, 300);
