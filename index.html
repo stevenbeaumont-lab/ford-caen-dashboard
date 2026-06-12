@@ -2262,6 +2262,15 @@ window.addEventListener('load',function(){
       </div>
       <button onclick="closeOutcomeModal()" style="width:28px;height:28px;border-radius:7px;border:1px solid var(--brd);background:none;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:var(--txt2);">&times;</button>
     </div>
+    <!-- 🎯 Bandeau "Client venu" - visible seulement si l'affaire est incomplète (vient d'un RDV) -->
+    <div id="om-venu-banner" style="display:none;margin:0;padding:13px 20px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-bottom:1px solid #f59e0b;align-items:center;gap:12px;">
+      <span style="font-size:22px;flex-shrink:0;">🎯</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12.5px;font-weight:700;color:#92400e;">Client venu ?</div>
+        <div style="font-size:10.5px;color:#78350f;line-height:1.4;margin-top:1px;">Précisez d'abord le véhicule et le financement pour finaliser l'affaire, puis choisissez la suite.</div>
+      </div>
+      <button onclick="omVenuClick()" style="padding:8px 14px;border-radius:8px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(217,119,6,.25);white-space:nowrap;">✏️ Compléter</button>
+    </div>
     <div style="padding:16px 20px;">
       <div style="font-size:11px;font-weight:600;color:var(--txt3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Résultat du contact</div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
@@ -2715,6 +2724,20 @@ function quickRelOutcome(dId,rId,outcome,ev){
 }
 
 function omSetDate(d){var el=document.getElementById('om-date');if(el)el.value=d;}
+
+// 🎯 "Client venu" : ferme outcome, ouvre Compléter, puis ré-ouvre outcome après validation
+function omVenuClick(){
+  if(!_om || !_om.dId){ return; }
+  const dId = _om.dId;
+  const rId = _om.rId;
+  // Mémoriser qu'on doit ré-ouvrir l'outcome après complétion
+  window._completeReopenOutcome = {dId:dId, rId:rId};
+  // Cacher le popup outcome (mais on garde _om pour pouvoir le ré-ouvrir)
+  var om = document.getElementById('outcome-modal');
+  if(om) om.style.display='none';
+  // Ouvrir Compléter
+  openCompleteDealModal(dId);
+}
 function _doRelModal(dId,rId,deal,rel){
   var ttl=document.getElementById('om-title');if(ttl)ttl.textContent='Relance effectuée — '+deal.client;
   var sub=document.getElementById('om-sub');if(sub)sub.textContent=deal.vehicule+' · '+rel.type+' du '+fmtDateMedium(rel.date);
@@ -2727,6 +2750,13 @@ function _doRelModal(dId,rId,deal,rel){
   ['appel','essai','offre','reprise','rdv'].forEach(function(k){var el=document.getElementById('om-kpi-'+k);if(el)el.checked=(k==='appel');});
   preCheckKpi(rel.type);
   if(_lastOutcome&&_lastOutcome!=='refl')selOut(_lastOutcome);
+  // 🎯 Bandeau "Client venu" si l'affaire est incomplète (vient d'un RDV)
+  var venuBanner = document.getElementById('om-venu-banner');
+  if(venuBanner){
+    var needsCompletion = (deal.vehicule==='À préciser' || deal.financement==='Non défini'
+      || (deal.vehicules && deal.vehicules.some(function(v){return v.modele==='À préciser' || v.financement==='Non défini';})));
+    venuBanner.style.display = needsCompletion ? 'flex' : 'none';
+  }
   const om2=document.getElementById('outcome-modal');if(om2)om2.style.display='flex';
 }
 
@@ -3479,7 +3509,7 @@ function openCompleteDealModal(dealId){
   m = document.createElement('div');
   m.id = 'complete-deal-modal';
   m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:2100;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;backdrop-filter:blur(6px);overflow-y:auto;';
-  m.onclick = function(e){ if(e.target===m) m.remove(); };
+  m.onclick = function(e){ if(e.target===m) _compCancel(); };
   
   const modelOpts = '<option value="">— Choisir un modèle —</option>'
     + modeles.map(function(mo){ return '<option'+(curModele===mo?' selected':'')+'>'+mo+'</option>'; }).join('');
@@ -3497,7 +3527,7 @@ function openCompleteDealModal(dealId){
           <div style="font-size:15px;font-weight:700;letter-spacing:-.01em;">Compléter l'affaire</div>
           <div style="font-size:11px;opacity:.85;margin-top:1px;">${escapeHtml(d.client)} — projet désormais identifié</div>
         </div>
-        <button onclick="document.getElementById('complete-deal-modal').remove()" style="width:30px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.12);cursor:pointer;color:#fff;font-family:inherit;font-size:15px;">✕</button>
+        <button onclick="_compCancel()" style="width:30px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.12);cursor:pointer;color:#fff;font-family:inherit;font-size:15px;">✕</button>
       </div>
       <div style="padding:22px;display:flex;flex-direction:column;gap:16px;">
         <!-- Véhicule -->
@@ -3528,12 +3558,23 @@ function openCompleteDealModal(dealId){
         
         <!-- Boutons -->
         <div style="display:flex;gap:8px;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--brd);margin-top:4px;">
-          <button class="btn-o" onclick="document.getElementById('complete-deal-modal').remove()">Annuler</button>
+          <button class="btn-o" onclick="_compCancel()">Annuler</button>
           <button onclick="confirmCompleteDeal(${d.id})" style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;padding:10px 22px;border-radius:9px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;cursor:pointer;font-family:inherit;box-shadow:0 3px 10px rgba(16,185,129,.3);">✓ Valider</button>
         </div>
       </div>
     </div>`;
   document.body.appendChild(m);
+}
+
+function _compCancel(){
+  const m = document.getElementById('complete-deal-modal');
+  if(m) m.remove();
+  // Si on est venu du popup outcome (bouton "Client venu"), on le ré-ouvre
+  if(window._completeReopenOutcome){
+    const ctx = window._completeReopenOutcome;
+    window._completeReopenOutcome = null;
+    setTimeout(function(){ doRel(ctx.dId, ctx.rId); }, 200);
+  }
 }
 
 function _compSetFin(fin){
@@ -3613,6 +3654,15 @@ function confirmCompleteDeal(dealId){
   render();
   refreshDealDetail();
   showToastMsg('\u2713 Affaire complétée — '+modele+' / '+fin);
+  
+  // 🎯 Si on vient du popup "Client venu", on ré-ouvre l'outcome pour la suite
+  if(window._completeReopenOutcome && window._completeReopenOutcome.dId === dealId){
+    const ctx = window._completeReopenOutcome;
+    window._completeReopenOutcome = null;
+    setTimeout(function(){
+      doRel(ctx.dId, ctx.rId);
+    }, 250);
+  }
 }
 
 // ── Styled delete confirmation ─────────────────────────
