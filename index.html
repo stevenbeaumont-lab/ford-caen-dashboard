@@ -860,9 +860,34 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
     };
     var hdrsDel = { 'apikey': KEY, 'Authorization': 'Bearer ' + KEY };
     
-    var p1 = dealsPayload.length ? fetch(URL+'/rest/v1/deals?on_conflict=id', {
-      method: 'POST', headers: hdrs, body: JSON.stringify(dealsPayload)
-    }) : Promise.resolve();
+    // Helper push deals avec fallback si la colonne "data" n'existe pas encore
+    function pushDeals(payload){
+      return fetch(URL+'/rest/v1/deals?on_conflict=id', {
+        method: 'POST', headers: hdrs, body: JSON.stringify(payload)
+      }).then(function(r){
+        if(r.status===400 || r.status===404){
+          // Peut-être que la colonne 'data' n'existe pas → retry sans
+          return r.text().then(function(t){
+            if(t && (t.indexOf('"data"')>=0 || t.indexOf('column')>=0)){
+              console.warn('⚠ Colonne "data" absente côté Supabase, retry sans (exécute: ALTER TABLE deals ADD COLUMN data JSONB)');
+              var fallbackPayload = payload.map(function(d){
+                var copy = Object.assign({}, d);
+                delete copy.data;
+                return copy;
+              });
+              return fetch(URL+'/rest/v1/deals?on_conflict=id', {
+                method: 'POST', headers: hdrs, body: JSON.stringify(fallbackPayload)
+              });
+            }
+            // Sinon, renvoyer l'erreur originale
+            return {status: r.status, text: function(){return Promise.resolve(t);}};
+          });
+        }
+        return r;
+      });
+    }
+    
+    var p1 = dealsPayload.length ? pushDeals(dealsPayload) : Promise.resolve();
     
     // 2. UPSERT relances
     var allRel = [];
@@ -991,6 +1016,10 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
     var cur = localStorage.getItem('fc_dl') || '';
     if (cur !== lastHash) return; // modifs locales en attente, on push d'abord
     
+    // 🛡️ Récupérer les deals locaux actuels pour fallback
+    var existingDeals = [];
+    try { existingDeals = (JSON.parse(cur||'{}').d) || []; } catch(e){}
+    
     try {
       var vendeurs = get('vendeurs?select=*&order=name');
       if (!vendeurs.length) return;
@@ -1011,32 +1040,34 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
         var did = (typeof d.id === 'string') ? parseInt(d.id,10) : d.id;
         // 🌩️ Fusionner la colonne JSONB "data"
         var extra = d.data || {};
+        // 🛡️ Préserver les valeurs locales si Supabase renvoie null
+        var localDeal = (existingDeals||[]).find(function(ld){return ld.id===did;}) || {};
         return {
           id:did,
-          date:d.date,
-          vendeur:d.vendeur,
-          client:d.client,
-          vehicule:d.vehicule,
-          financement:d.financement,
-          statut:d.statut,
-          commentaire:d.commentaire||'',
-          relances:relByDeal[did]||[],
-          postVente: extra.postVente || null,
-          notes: extra.notes || [],
-          vehicules: extra.vehicules || null,
-          livraisonPrevue: extra.livraisonPrevue || null,
-          reportDate: extra.reportDate || null,
-          essai: !!extra.essai,
-          typeClient: extra.typeClient || 'part',
-          tel: extra.tel || null,
-          email: extra.email || null,
-          reprise: extra.reprise || null,
-          rdvSource: extra.rdvSource || null,
-          rdvType: extra.rdvType || null,
-          dateVente: extra.dateVente || null,
-          dateMaj: extra.dateMaj || null,
-          archived:d.archived||false,
-          archivedDate:d.archived_date
+          date:d.date || localDeal.date || null,
+          vendeur:d.vendeur || localDeal.vendeur,
+          client:d.client || localDeal.client,
+          vehicule:d.vehicule || localDeal.vehicule,
+          financement:d.financement || localDeal.financement,
+          statut:d.statut || localDeal.statut,
+          commentaire:d.commentaire || localDeal.commentaire || '',
+          relances:relByDeal[did]||(localDeal.relances||[]),
+          postVente: extra.postVente || localDeal.postVente || null,
+          notes: (extra.notes && extra.notes.length) ? extra.notes : (localDeal.notes||[]),
+          vehicules: extra.vehicules || localDeal.vehicules || null,
+          livraisonPrevue: extra.livraisonPrevue || localDeal.livraisonPrevue || null,
+          reportDate: extra.reportDate || localDeal.reportDate || null,
+          essai: extra.essai !== undefined ? extra.essai : !!localDeal.essai,
+          typeClient: extra.typeClient || localDeal.typeClient || 'part',
+          tel: extra.tel || localDeal.tel || null,
+          email: extra.email || localDeal.email || null,
+          reprise: extra.reprise || localDeal.reprise || null,
+          rdvSource: extra.rdvSource || localDeal.rdvSource || null,
+          rdvType: extra.rdvType || localDeal.rdvType || null,
+          dateVente: extra.dateVente || localDeal.dateVente || null,
+          dateMaj: extra.dateMaj || localDeal.dateMaj || null,
+          archived:d.archived || localDeal.archived || false,
+          archivedDate:d.archived_date || localDeal.archivedDate
         };
       });
       var maxId = dealsArr.reduce(function(m,d){return Math.max(m,d.id||0);},0);
