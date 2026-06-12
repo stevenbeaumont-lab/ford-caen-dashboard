@@ -2707,16 +2707,18 @@ function doRel(dId,rId){
     return;
   }
   _om={dId:deal.id,rId:rel.id,out:null};
-  // Si la relance correspond à un RDV physique (Showroom OU chez le client) → wizard "Bilan"
-  // Le type de la relance est 'RDV Showroom' pour showroom, ou 'RDV Essai' (chez client)
-  // On vérifie aussi via deal.rdvType pour les affaires issues du bouton "+"
+  // Wizard "Bilan RDV" UNIQUEMENT si :
+  //  - relance type physique (RDV Showroom / RDV Essai / deal.rdvType showroom ou chezclient)
+  //  - ET affaire encore incomplète (véhicule "À préciser" ou financement "Non défini")
+  // Sinon → popup standard 'Relance effectuée' (cas des RDV suivants sur une affaire déjà complétée)
   const isPhysicalRdv = (rel.type==='RDV Showroom' || rel.type==='RDV Essai'
     || deal.rdvType==='showroom' || deal.rdvType==='chezclient');
-  if(isPhysicalRdv){
+  const isIncomplete = (typeof _sbIsDealComplete==='function') ? !_sbIsDealComplete(deal) : (deal.vehicule==='À préciser' || deal.financement==='Non défini');
+  if(isPhysicalRdv && isIncomplete){
     openShowroomBilanModal(deal.id,rel.id);
     return;
   }
-  // Toujours utiliser le popup modal
+  // Tous les autres cas → popup standard
   _doRelModal(deal.id,rel.id,deal,rel);
 }
 // Action rapide : ouvre la modale outcome avec un résultat présélectionné
