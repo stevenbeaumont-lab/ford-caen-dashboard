@@ -2707,8 +2707,12 @@ function doRel(dId,rId){
     return;
   }
   _om={dId:deal.id,rId:rel.id,out:null};
-  // Si la relance est un RDV Showroom : ouvrir la modale dédiée "Bilan du RDV showroom"
-  if(rel.type==='RDV Showroom'){
+  // Si la relance correspond à un RDV physique (Showroom OU chez le client) → wizard "Bilan"
+  // Le type de la relance est 'RDV Showroom' pour showroom, ou 'RDV Essai' (chez client)
+  // On vérifie aussi via deal.rdvType pour les affaires issues du bouton "+"
+  const isPhysicalRdv = (rel.type==='RDV Showroom' || rel.type==='RDV Essai'
+    || deal.rdvType==='showroom' || deal.rdvType==='chezclient');
+  if(isPhysicalRdv){
     openShowroomBilanModal(deal.id,rel.id);
     return;
   }
@@ -3491,18 +3495,191 @@ function addRdv(){
 }
 
 // ============================================
-// ✏️ COMPLÉTER UNE AFFAIRE (RDV transformé en projet identifié)
+// ✏️ COMPLÉTER UNE AFFAIRE — Format liste compacte (Proposition A)
+// ============================================
+// Modèles connus pour autocomplete
+window._FC_MODELES_FALLBACK = ['Puma','Kuga','Focus','Fiesta','Mustang','Mustang Mach-E','Ranger','Ranger Raptor','Transit','Transit Custom','Tourneo','Tourneo Custom','Tourneo Connect','Explorer','Capri','Bronco'];
+window._FC_FINANCEMENTS = ['LOA','LLD','Comptant','Crédit'];
+
+function _fcGetModeles(){
+  const m = (CFG && CFG.modeles && CFG.modeles.length) ? CFG.modeles : window._FC_MODELES_FALLBACK;
+  return m;
+}
+
+/**
+ * Rend une liste compacte de véhicules dans un container donné.
+ * Utilisable depuis modale Compléter standalone ou wizard étape 3.
+ * @param {HTMLElement} container - élément où injecter
+ * @param {Array} vehs - tableau initial [{modele, financement, montantGlobal}, ...]
+ * @param {Object} opts - {showTotal: true|false, prefix: 'comp' | 'sbv'}
+ * @returns {Function} getVehs() - retourne les véhicules saisis actuellement
+ */
+function fcRenderVehListA(container, vehs, opts){
+  opts = opts || {};
+  const prefix = opts.prefix || 'vha';
+  const showTotal = opts.showTotal !== false;
+  
+  // Datalist pour autocomplete des modèles
+  const modeleListId = prefix + '-modeles-list';
+  const modeles = _fcGetModeles();
+  
+  // S'assurer qu'on a au moins un véhicule
+  const list = (vehs && vehs.length) ? vehs.slice() : [{modele:'', financement:'', montantGlobal:''}];
+  
+  // Génère le HTML d'une ligne
+  function rowHtml(v, i){
+    const finOpts = '<option value=""></option>' + window._FC_FINANCEMENTS.map(function(f){
+      return '<option'+(v.financement===f?' selected':'')+'>'+f+'</option>';
+    }).join('');
+    return '<div class="' + prefix + '-row" data-idx="' + i + '" style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 4px;border-radius:8px;">'
+      + '<div style="display:flex;align-items:center;gap:6px;min-width:0;">'
+      + '<span style="font-size:10px;font-weight:700;color:var(--txt3);width:18px;flex-shrink:0;">#'+(i+1)+'</span>'
+      + '<input class="' + prefix + '-mod" list="' + modeleListId + '" placeholder="Modèle…" value="'+(v.modele||'').replace(/"/g,'&quot;')+'" style="flex:1;min-width:0;font-size:13px;padding:7px 10px;border:1px solid var(--brd);border-radius:7px;background:var(--card2);color:var(--txt);font-family:inherit;">'
+      + '</div>'
+      + '<select class="' + prefix + '-fin" style="font-size:13px;padding:7px 10px;border:1px solid var(--brd);border-radius:7px;background:var(--card2);color:var(--txt);font-family:inherit;">'+finOpts+'</select>'
+      + '<div style="position:relative;">'
+      + '<input class="' + prefix + '-mont" type="number" placeholder="€" value="'+(v.montantGlobal||'')+'" style="width:100%;font-size:13px;padding:7px 28px 7px 10px;border:1px solid var(--brd);border-radius:7px;background:var(--card2);color:var(--txt);font-family:inherit;">'
+      + '<span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--txt3);pointer-events:none;">€</span>'
+      + '</div>'
+      + '<button type="button" class="' + prefix + '-del" title="Retirer" style="background:none;border:none;cursor:pointer;color:var(--txt3);font-size:16px;line-height:1;padding:4px 6px;border-radius:6px;font-family:inherit;">🗑</button>'
+      + '</div>';
+  }
+  
+  // Construit la structure complète
+  function buildHtml(){
+    const dl = '<datalist id="' + modeleListId + '">' + modeles.map(function(m){return '<option value="'+m+'">';}).join('') + '</datalist>';
+    const hdr = '<div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr) auto;gap:8px;padding:0 4px;font-size:10px;font-weight:700;color:var(--txt3);text-transform:uppercase;letter-spacing:.05em;">'
+      + '<div style="padding-left:24px;">Modèle</div>'
+      + '<div>Financement</div>'
+      + '<div>Montant global</div>'
+      + '<div style="width:24px;"></div>'
+      + '</div>';
+    const rowsHtml = list.map(function(v,i){return rowHtml(v,i);}).join('');
+    const addBtn = '<button type="button" class="' + prefix + '-add" style="display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:8px;border:1px dashed var(--ford);background:var(--ford-lt);color:var(--ford);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;width:auto;margin-top:4px;">+ Ajouter un véhicule</button>';
+    const totalHtml = showTotal ? '<div class="' + prefix + '-total-wrap" style="margin-top:10px;padding:10px 14px;background:linear-gradient(135deg,var(--ford-lt),#dbeafe);border:1px solid #BFDBFE;border-radius:9px;display:flex;align-items:center;justify-content:space-between;">'
+      + '<span style="font-size:11.5px;font-weight:600;color:var(--ford);">💰 Total financé</span>'
+      + '<span class="' + prefix + '-total" style="font-size:15px;font-weight:800;color:var(--ford);letter-spacing:-.01em;">0 €</span>'
+      + '</div>' : '';
+    return dl + hdr + '<div class="' + prefix + '-rows" style="display:flex;flex-direction:column;gap:2px;margin:6px 0;">' + rowsHtml + '</div>' + addBtn + totalHtml;
+  }
+  
+  container.innerHTML = buildHtml();
+  
+  // Helper format montant
+  function fmtMont(n){
+    try{ return new Intl.NumberFormat('fr-FR').format(n) + ' €'; }catch(e){ return n+' €'; }
+  }
+  
+  // Recalcule le total
+  function refreshTotal(){
+    if(!showTotal) return;
+    const monts = Array.from(container.querySelectorAll('.'+prefix+'-mont'));
+    let total = 0, count = 0;
+    monts.forEach(function(inp){
+      const v = parseFloat(inp.value);
+      if(!isNaN(v) && v>0){ total += v; count++; }
+    });
+    const tEl = container.querySelector('.'+prefix+'-total');
+    if(tEl){
+      const rowsCount = container.querySelectorAll('.'+prefix+'-row').length;
+      tEl.textContent = fmtMont(total) + (rowsCount>1?' ('+rowsCount+' véhicules)':'');
+    }
+  }
+  
+  // Met à jour le visuel d'une ligne et le bouton supprimer (actif si >1 ligne)
+  function refreshDeleteButtons(){
+    const rows = container.querySelectorAll('.'+prefix+'-row');
+    const dels = container.querySelectorAll('.'+prefix+'-del');
+    const canDelete = rows.length > 1;
+    dels.forEach(function(b){
+      b.style.opacity = canDelete ? '1' : '.3';
+      b.style.cursor = canDelete ? 'pointer' : 'not-allowed';
+    });
+  }
+  
+  // Ajoute une nouvelle ligne au DOM
+  function addRow(){
+    const rowsDiv = container.querySelector('.'+prefix+'-rows');
+    const i = rowsDiv.children.length;
+    const div = document.createElement('div');
+    div.innerHTML = rowHtml({modele:'',financement:'',montantGlobal:''}, i);
+    const newRow = div.firstChild;
+    // Animation simple : fade in
+    newRow.style.opacity = '0';
+    newRow.style.transition = 'opacity .2s';
+    rowsDiv.appendChild(newRow);
+    requestAnimationFrame(function(){ newRow.style.opacity = '1'; });
+    refreshDeleteButtons();
+    // Focus sur le nouveau champ modèle
+    const inp = newRow.querySelector('.'+prefix+'-mod');
+    if(inp) setTimeout(function(){inp.focus();}, 60);
+  }
+  
+  // Supprime une ligne
+  function removeRow(row){
+    const rows = container.querySelectorAll('.'+prefix+'-row');
+    if(rows.length <= 1) return;
+    row.style.transition = 'opacity .15s, transform .15s';
+    row.style.opacity = '0';
+    row.style.transform = 'translateX(20px)';
+    setTimeout(function(){
+      row.remove();
+      // Re-numéroter
+      const allRows = container.querySelectorAll('.'+prefix+'-row');
+      allRows.forEach(function(r, i){
+        r.setAttribute('data-idx', i);
+        const num = r.querySelector('span');
+        if(num) num.textContent = '#'+(i+1);
+      });
+      refreshDeleteButtons();
+      refreshTotal();
+    }, 150);
+  }
+  
+  // Délégation d'événements
+  container.addEventListener('input', function(e){
+    if(e.target.classList.contains(prefix+'-mont')) refreshTotal();
+  });
+  container.addEventListener('click', function(e){
+    if(e.target.classList.contains(prefix+'-add')){
+      e.preventDefault();
+      addRow();
+    } else if(e.target.classList.contains(prefix+'-del')){
+      e.preventDefault();
+      const row = e.target.closest('.'+prefix+'-row');
+      if(row) removeRow(row);
+    }
+  });
+  
+  refreshTotal();
+  refreshDeleteButtons();
+  
+  // Retourne les véhicules saisis
+  return function getVehs(){
+    const rows = container.querySelectorAll('.'+prefix+'-row');
+    return Array.from(rows).map(function(r){
+      return {
+        modele: (r.querySelector('.'+prefix+'-mod')?.value || '').trim(),
+        financement: r.querySelector('.'+prefix+'-fin')?.value || '',
+        montantGlobal: (r.querySelector('.'+prefix+'-mont')?.value || '').trim()
+      };
+    });
+  };
+}
+
+// ============================================
+// ✏️ MODALE COMPLÉTER STANDALONE
 // ============================================
 window._completeDealId = null;
-window._completeVehs = [];
+window._completeGetVehs = null; // closure pour lire les véhicules saisis
 
 function openCompleteDealModal(dealId){
   const d = deals.find(x=>x.id===dealId);
   if(!d) return;
   
   window._completeDealId = dealId;
-  // Initialiser à partir des véhicules existants (non placeholders)
-  window._completeVehs = (d.vehicules || [])
+  // Pré-remplir avec les véhicules existants (en filtrant les placeholders)
+  const initialVehs = (d.vehicules || [])
     .filter(function(v){return v && v.modele && v.modele !== 'À préciser';})
     .map(function(v){
       return {
@@ -3511,20 +3688,6 @@ function openCompleteDealModal(dealId){
         montantGlobal: v.montantGlobal || v.montantFin || ''
       };
     });
-  if(window._completeVehs.length === 0){
-    window._completeVehs.push({modele:'', financement:'', montantGlobal:''});
-  }
-  
-  _renderCompleteModal();
-}
-
-function _renderCompleteModal(){
-  const dealId = window._completeDealId;
-  const d = deals.find(x=>x.id===dealId);
-  if(!d) return;
-  
-  const modeles = (CFG && CFG.modeles) || ['Puma','Kuga','Focus','Fiesta','Mustang','Ranger','Transit','Tourneo','Explorer','Mustang Mach-E'];
-  const finOptions = ['LOA','LLD','Comptant','Crédit classique'];
   
   let m = document.getElementById('complete-deal-modal');
   if(m) m.remove();
@@ -3532,133 +3695,44 @@ function _renderCompleteModal(){
   m.id = 'complete-deal-modal';
   m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:2100;display:flex;align-items:flex-start;justify-content:center;padding:30px 16px;backdrop-filter:blur(6px);overflow-y:auto;';
   m.onclick = function(e){ if(e.target===m) _compCancel(); };
-  
-  // Construire chaque carte véhicule
-  const vehsCards = window._completeVehs.map(function(v, i){
-    const modelOpts = '<option value="">— Choisir un modèle —</option>'
-      + modeles.map(function(mo){ return '<option'+(v.modele===mo?' selected':'')+'>'+mo+'</option>'; }).join('');
-    const isCustom = v.modele && !modeles.includes(v.modele);
-    
-    const finBtns = finOptions.map(function(f){
-      var sel = (v.financement===f);
-      return '<button type="button" onclick="_completeSetFin('+i+',\''+f+'\')" style="padding:7px 11px;border-radius:7px;border:'+(sel?'2px':'1px')+' solid '+(sel?'var(--ford)':'var(--brd)')+';background:'+(sel?'var(--ford-lt)':'var(--card2)')+';color:'+(sel?'var(--ford)':'var(--txt2)')+';font-size:12px;font-weight:'+(sel?'700':'500')+';cursor:pointer;font-family:inherit;flex:1;min-width:60px;">'+f+'</button>';
-    }).join('');
-    
-    const removeBtn = window._completeVehs.length > 1
-      ? '<button onclick="_completeRemoveVeh('+i+')" style="background:none;border:none;cursor:pointer;color:#dc2626;font-size:18px;line-height:1;padding:2px 6px;font-family:inherit;" title="Retirer ce véhicule">×</button>'
-      : '<span></span>';
-    
-    return '<div style="border:1px solid var(--brd);border-radius:10px;padding:14px;background:var(--card2);">'
-      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
-      + '<div style="font-size:11px;font-weight:700;color:var(--txt);text-transform:uppercase;letter-spacing:.05em;">🚗 Véhicule '+(i+1)+'</div>'
-      + removeBtn
-      + '</div>'
-      + '<div style="display:flex;flex-direction:column;gap:8px;">'
-      + '<div><label class="label" style="font-size:10.5px;">Modèle</label>'
-      + '<select id="comp-veh-mod-'+i+'" onchange="_completeSyncModel('+i+')" style="width:100%;font-size:13px;margin-top:3px;">'+modelOpts+'</select>'
-      + '<input id="comp-veh-mod-cust-'+i+'" type="text" placeholder="Ou autre modèle…" value="'+(isCustom?escapeHtml(v.modele):'')+'" onchange="_completeSyncCustom('+i+')" style="width:100%;font-size:13px;margin-top:5px;"></div>'
-      + '<div><label class="label" style="font-size:10.5px;">Financement</label>'
-      + '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px;">'+finBtns+'</div></div>'
-      + '<div><label class="label" style="font-size:10.5px;">Montant global financé (€)</label>'
-      + '<input id="comp-veh-mont-'+i+'" type="number" placeholder="ex: 25000" value="'+escapeHtml(v.montantGlobal||'')+'" style="width:100%;font-size:13px;margin-top:3px;"></div>'
-      + '</div></div>';
-  }).join('');
-  
   m.innerHTML = `
-    <div style="background:var(--card);border:1px solid var(--brd);border-radius:16px;max-width:580px;width:100%;margin:auto;box-shadow:0 20px 50px rgba(15,23,42,.3);overflow:hidden;display:flex;flex-direction:column;max-height:calc(100vh - 60px);">
+    <div style="background:var(--card);border:1px solid var(--brd);border-radius:16px;max-width:680px;width:100%;margin:auto;box-shadow:0 20px 50px rgba(15,23,42,.3);overflow:hidden;display:flex;flex-direction:column;max-height:calc(100vh - 60px);">
       <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:18px 22px;color:#fff;display:flex;align-items:center;gap:12px;flex-shrink:0;">
         <span style="font-size:24px;">🎯</span>
         <div style="flex:1;">
           <div style="font-size:15px;font-weight:700;letter-spacing:-.01em;">Compléter l'affaire</div>
-          <div style="font-size:11px;opacity:.85;margin-top:1px;">${escapeHtml(d.client)} — projet désormais identifié</div>
+          <div style="font-size:11px;opacity:.85;margin-top:1px;">${escapeHtml(d.client)} — précisez le projet</div>
         </div>
         <button onclick="_compCancel()" style="width:30px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.12);cursor:pointer;color:#fff;font-family:inherit;font-size:15px;">✕</button>
       </div>
       <div style="padding:18px 22px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:14px;">
-        <!-- Header véhicules -->
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-          <div>
-            <div style="font-size:13px;font-weight:700;color:var(--txt);">🚗 Véhicules proposés</div>
-            <div style="font-size:11px;color:var(--txt3);margin-top:1px;">Tous les véhicules présentés au client</div>
-          </div>
-          <button onclick="_completeAddVeh()" style="padding:7px 13px;border-radius:8px;border:1px dashed var(--ford);background:var(--ford-lt);color:var(--ford);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">+ Ajouter</button>
-        </div>
-        
-        <!-- Véhicules -->
-        ${vehsCards}
-        
-        <!-- Note de complétion -->
         <div>
-          <label class="label" style="display:block;margin-bottom:6px;">📝 Note de complétion (optionnel)</label>
-          <textarea id="comp-note" rows="2" placeholder="Ex: Client hésite entre Puma hybride et Kuga PHEV, prochain RDV mercredi pour essai..." style="width:100%;padding:9px 11px;border:1px solid var(--brd);border-radius:8px;background:var(--card2);color:var(--txt);font-family:inherit;font-size:13px;resize:vertical;"></textarea>
+          <div style="font-size:13px;font-weight:700;color:var(--txt);margin-bottom:2px;">🚗 Véhicules proposés</div>
+          <div style="font-size:11px;color:var(--txt3);margin-bottom:10px;">Tous les véhicules présentés au client (modèle, type de financement et montant global)</div>
+          <div id="comp-veh-list"></div>
+        </div>
+        <div>
+          <label class="label" style="display:block;margin-bottom:5px;">📝 Note (optionnel)</label>
+          <textarea id="comp-note" rows="2" placeholder="Ex: Client hésite entre Puma et Kuga, prochain RDV pour essai…" style="width:100%;padding:9px 11px;border:1px solid var(--brd);border-radius:8px;background:var(--card2);color:var(--txt);font-family:inherit;font-size:13px;resize:vertical;"></textarea>
         </div>
       </div>
-      <!-- Footer fixe en bas -->
       <div style="padding:14px 22px;border-top:1px solid var(--brd);background:var(--card2);display:flex;gap:8px;justify-content:flex-end;flex-shrink:0;">
         <button class="btn-o" onclick="_compCancel()">Annuler</button>
         <button onclick="confirmCompleteDeal()" style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;padding:10px 22px;border-radius:9px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;cursor:pointer;font-family:inherit;box-shadow:0 3px 10px rgba(16,185,129,.3);">✓ Valider l'affaire</button>
       </div>
     </div>`;
   document.body.appendChild(m);
-}
-
-// Sauvegarder l'état des inputs avant un re-render
-function _saveCompleteFormState(){
-  if(!window._completeVehs) return;
-  window._completeVehs.forEach(function(v, i){
-    var modCust = document.getElementById('comp-veh-mod-cust-'+i);
-    var modSel = document.getElementById('comp-veh-mod-'+i);
-    var mont = document.getElementById('comp-veh-mont-'+i);
-    if(modCust && modCust.value.trim()){
-      v.modele = modCust.value.trim();
-    } else if(modSel && modSel.value){
-      v.modele = modSel.value;
-    }
-    if(mont) v.montantGlobal = mont.value;
-  });
-}
-
-function _completeSyncModel(i){
-  // Quand on choisit dans le select, on vide le custom
-  var modCust = document.getElementById('comp-veh-mod-cust-'+i);
-  var modSel = document.getElementById('comp-veh-mod-'+i);
-  if(modSel && modSel.value && modCust) modCust.value = '';
-  if(window._completeVehs[i] && modSel) window._completeVehs[i].modele = modSel.value;
-}
-
-function _completeSyncCustom(i){
-  // Quand on saisit dans le custom, on remet le select à vide
-  var modCust = document.getElementById('comp-veh-mod-cust-'+i);
-  var modSel = document.getElementById('comp-veh-mod-'+i);
-  if(modCust && modCust.value.trim() && modSel) modSel.value = '';
-  if(window._completeVehs[i] && modCust) window._completeVehs[i].modele = modCust.value.trim();
-}
-
-function _completeAddVeh(){
-  _saveCompleteFormState();
-  window._completeVehs.push({modele:'', financement:'', montantGlobal:''});
-  _renderCompleteModal();
-}
-
-function _completeRemoveVeh(idx){
-  _saveCompleteFormState();
-  if(window._completeVehs.length <= 1) return;
-  window._completeVehs.splice(idx, 1);
-  _renderCompleteModal();
-}
-
-function _completeSetFin(idx, fin){
-  _saveCompleteFormState();
-  if(window._completeVehs[idx]){
-    window._completeVehs[idx].financement = fin;
-  }
-  _renderCompleteModal();
+  
+  // Initialiser la liste de véhicules
+  const listEl = document.getElementById('comp-veh-list');
+  window._completeGetVehs = fcRenderVehListA(listEl, initialVehs, {prefix:'comp', showTotal:true});
 }
 
 function _compCancel(){
   const m = document.getElementById('complete-deal-modal');
   if(m) m.remove();
   window._completeDealId = null;
+  window._completeGetVehs = null;
   // Si on est venu du popup outcome (bouton "Client venu"), on le ré-ouvre
   if(window._completeReopenOutcome){
     const ctx = window._completeReopenOutcome;
@@ -3671,18 +3745,18 @@ function confirmCompleteDeal(){
   const dealId = window._completeDealId;
   const d = deals.find(x=>x.id===dealId);
   if(!d){ return; }
+  if(!window._completeGetVehs){ return; }
   
-  _saveCompleteFormState();
-  const vehs = window._completeVehs;
+  const vehs = window._completeGetVehs();
   
   // Validation
   for(var i = 0; i < vehs.length; i++){
     if(!vehs[i].modele){
-      showToastMsg('\u26A0 Choisissez un modèle pour le véhicule '+(i+1),'var(--red)');
+      showToastMsg('\u26A0 Modèle manquant pour le véhicule '+(i+1),'var(--red)');
       return;
     }
     if(!vehs[i].financement){
-      showToastMsg('\u26A0 Choisissez un financement pour le véhicule '+(i+1),'var(--red)');
+      showToastMsg('\u26A0 Financement manquant pour le véhicule '+(i+1),'var(--red)');
       return;
     }
   }
@@ -3729,13 +3803,14 @@ function confirmCompleteDeal(){
   const m = document.getElementById('complete-deal-modal');
   if(m) m.remove();
   window._completeDealId = null;
+  window._completeGetVehs = null;
   invalidateRelCache();
   save();
   render();
   refreshDealDetail();
   showToastMsg('\u2713 Affaire complétée — '+summary);
   
-  // 🎯 Si on vient du popup "Client venu", on ré-ouvre l'outcome
+  // Si on vient du popup "Client venu", on ré-ouvre l'outcome
   if(window._completeReopenOutcome && window._completeReopenOutcome.dId === dealId){
     const ctx = window._completeReopenOutcome;
     window._completeReopenOutcome = null;
@@ -3844,7 +3919,7 @@ var _sbStep=1; // étape courante du wizard (1=présence, 2=activités, 3=suite)
 function openShowroomBilanModal(dId,rId){
   var deal=deals.find(function(x){return x.id===dId;});if(!deal)return;
   var rel=(deal.relances||[]).find(function(r){return r.id===rId;});if(!rel)return;
-  _sbState={dId:dId,rId:rId,venu:null,suite:null,activites:{essai:false,offre:false,reprise:false}};
+  _sbState={dId:dId,rId:rId,venu:null,suite:null,activites:{essai:false,offre:false,reprise:false},vehicules:null,getVehs:null};
   _sbStep=1;
   // Reset visuel des boutons étape 1
   ['venu','nonvenu','reporte'].forEach(function(k){
@@ -3863,6 +3938,15 @@ function openShowroomBilanModal(dId,rId){
   // Sous-titre header
   var sub=document.getElementById('sb-sub');
   if(sub)sub.textContent=deal.client+' \u00b7 '+(deal.vehicule||'')+' \u00b7 RDV du '+fmtDateMedium(rel.date);
+  // Titre adapté selon le type de RDV
+  var ttl=document.getElementById('sb-modal-title');
+  if(ttl){
+    if(deal.rdvType==='chezclient' || rel.type==='RDV Essai'){
+      ttl.textContent='Bilan du RDV chez le client';
+    } else {
+      ttl.textContent='Bilan du RDV showroom';
+    }
+  }
   // Affiche étape 1
   sbGoStep(1);
   // Affiche modale
@@ -3871,28 +3955,39 @@ function openShowroomBilanModal(dId,rId){
 
 function closeShowroomBilanModal(){
   var m=document.getElementById('showroom-bilan-modal');if(m)m.style.display='none';
-  _sbState={dId:null,rId:null,venu:null,suite:null,activites:{essai:false,offre:false,reprise:false}};
+  _sbState={dId:null,rId:null,venu:null,suite:null,activites:{essai:false,offre:false,reprise:false},vehicules:null,getVehs:null};
   _sbStep=1;
 }
 
-// Navigation entre étapes
+// Navigation entre étapes (4 étapes : Présence > Activités > Compléter > Suite)
 function sbGoStep(n){
   if(n<1)n=1;
-  // Si on est à l'étape 1 et qu'on passe à 2 mais que le client n'est pas venu, on saute à 3
-  if(_sbStep===1&&n===2&&_sbState.venu!=='venu')n=3;
-  // Si on est à l'étape 3 et qu'on recule à 2 mais que le client n'est pas venu, on saute à 1
-  if(_sbStep===3&&n===2&&_sbState.venu!=='venu')n=1;
-  if(n>3)n=3;
-  _sbStep=n;
+  if(n>4)n=4;
+  
+  const deal = deals.find(function(x){return x.id===_sbState.dId;});
+  const isComplete = deal ? _sbIsDealComplete(deal) : true;
+  const venu = _sbState.venu;
+  
+  // Logique de saut
+  // Étape 2 (Activités) : seulement si client venu
+  // Étape 3 (Compléter) : seulement si client venu ET affaire incomplète
+  if(_sbStep < n){ // on avance
+    if(n===2 && venu!=='venu') n = isComplete ? 4 : 3;
+    if(n===3 && (venu!=='venu' || isComplete)) n = 4;
+  } else if(_sbStep > n){ // on recule
+    if(n===3 && (venu!=='venu' || isComplete)) n = 2;
+    if(n===2 && venu!=='venu') n = 1;
+  }
+  _sbStep = n;
 
   // Affiche la bonne section
-  ['1','2','3'].forEach(function(s){
+  ['1','2','3','4'].forEach(function(s){
     var sec=document.getElementById('sb-step-'+s);
     if(sec)sec.style.display=(s===String(n))?'block':'none';
   });
 
   // Met à jour la barre de progression
-  ['1','2','3'].forEach(function(s){
+  ['1','2','3','4'].forEach(function(s){
     var st=document.getElementById('sb-prog-'+s);
     if(!st)return;
     st.classList.remove('active','done');
@@ -3900,22 +3995,55 @@ function sbGoStep(n){
     else if(Number(s)===n)st.classList.add('active');
   });
 
+  // Initialiser l'étape 3 (Compléter) avec les véhicules existants
+  if(n===3){
+    _sbInitCompleteStep(deal);
+  }
+
   // Boutons retour/continuer/valider
   var btnBack=document.getElementById('sb-back');
   var btnNext=document.getElementById('sb-next');
   var btnVal=document.getElementById('sb-validate');
   if(btnBack)btnBack.style.display=(n>1)?'inline-flex':'none';
   // Si dernière étape : afficher Valider, cacher Continuer
-  if(n===3){
+  if(n===4){
     if(btnNext)btnNext.style.display='none';
     if(btnVal)btnVal.style.display='inline-flex';
-    // Au passage à l'étape 3 : générer les boutons de suite
+    // Au passage à l'étape 4 : générer les boutons de suite
     sbRenderSuiteButtons();
   } else {
     if(btnNext)btnNext.style.display='inline-flex';
     if(btnVal)btnVal.style.display='none';
   }
   _sbUpdateNextValidate();
+}
+
+// Détermine si une affaire est déjà complète (aucun placeholder)
+function _sbIsDealComplete(deal){
+  if(!deal) return true;
+  if(deal.vehicule==='À préciser' || deal.financement==='Non défini') return false;
+  if(deal.vehicules && deal.vehicules.some(function(v){
+    return v.modele==='À préciser' || v.financement==='Non défini';
+  })) return false;
+  return true;
+}
+
+// Initialise l'étape 3 (Compléter) avec les véhicules du deal
+function _sbInitCompleteStep(deal){
+  if(!deal) return;
+  const initialVehs = (deal.vehicules || [])
+    .filter(function(v){return v && v.modele && v.modele !== 'À préciser';})
+    .map(function(v){
+      return {
+        modele: v.modele || '',
+        financement: (v.financement && v.financement !== 'Non défini') ? v.financement : '',
+        montantGlobal: v.montantGlobal || v.montantFin || ''
+      };
+    });
+  const listEl = document.getElementById('sb-veh-list');
+  if(listEl){
+    _sbState.getVehs = fcRenderVehListA(listEl, initialVehs, {prefix:'sbv', showTotal:true});
+  }
 }
 
 // Génère les boutons "suite" selon le contexte
@@ -4027,9 +4155,34 @@ function _sbUpdateNextValidate(){
     // Étape 2 toujours franchissable (activités optionnelles)
     if(btnNext){btnNext.disabled=false;btnNext.style.opacity='1';}
   } else if(_sbStep===3){
+    // Étape 3 toujours franchissable (validation au moment du clic)
+    if(btnNext){btnNext.disabled=false;btnNext.style.opacity='1';}
+  } else if(_sbStep===4){
     var ok2=!!_sbState.suite;
     if(btnVal){btnVal.disabled=!ok2;btnVal.style.opacity=ok2?'1':'.5';}
   }
+}
+
+// Bouton "Continuer" : valide l'étape courante avant d'avancer
+function sbNext(){
+  if(_sbStep===3){
+    // Valider les véhicules saisis
+    if(typeof _sbState.getVehs === 'function'){
+      var vehs = _sbState.getVehs();
+      for(var i=0; i<vehs.length; i++){
+        if(!vehs[i].modele){
+          showToastMsg('\u26A0 Modèle manquant pour le véhicule '+(i+1),'var(--red)');
+          return;
+        }
+        if(!vehs[i].financement){
+          showToastMsg('\u26A0 Financement manquant pour le véhicule '+(i+1),'var(--red)');
+          return;
+        }
+      }
+      _sbState.vehicules = vehs; // mémoriser pour le confirmShowroomBilan
+    }
+  }
+  sbGoStep(_sbStep + 1);
 }
 
 // Validation finale : enregistre tout
@@ -4052,6 +4205,25 @@ function confirmShowroomBilan(){
   // 1. Marquer la relance comme faite
   rel.statut='Fait';
   if(vi>=0)sv(vi,curDate,'crm',gv(vi,curDate,'crm')+1);
+  
+  // 1bis. Appliquer les véhicules saisis à l'étape 3 (Compléter)
+  var completedVehs = null;
+  if(_sbState.vehicules && _sbState.vehicules.length){
+    var vehs = _sbState.vehicules;
+    deal.vehicules = vehs.map(function(v, i){
+      var ent = {
+        id: (deal.vehicules && deal.vehicules[i] && deal.vehicules[i].id) || (Date.now()+i),
+        modele: v.modele,
+        financement: v.financement,
+        qty: 1
+      };
+      if(v.montantGlobal) ent.montantGlobal = String(v.montantGlobal).trim();
+      return ent;
+    });
+    deal.vehicule = (typeof vehiculeDisplay==='function') ? vehiculeDisplay({vehicules:deal.vehicules}) : vehs[0].modele;
+    deal.financement = vehs[0].financement;
+    completedVehs = vehs;
+  }
 
   // 2. KPIs des activités (uniquement si venu)
   if(_sbState.venu==='venu'&&vi>=0){
@@ -4070,6 +4242,14 @@ function confirmShowroomBilan(){
   if(_sbState.activites.offre)actsLbl.push('Offre');
   if(_sbState.activites.reprise)actsLbl.push('Reprise');
   var noteTxt='Bilan RDV showroom : '+venuLbl+(actsLbl.length?' \u2014 '+actsLbl.join(', '):'');
+  if(completedVehs && completedVehs.length){
+    var vehSummary = completedVehs.map(function(v){
+      var s = v.modele + ' / ' + v.financement;
+      if(v.montantGlobal) s += ' (' + v.montantGlobal + ' €)';
+      return s;
+    }).join(' · ');
+    noteTxt += ' \u2014 \u270F\uFE0F ' + vehSummary;
+  }
   deal.notes.push({
     date:curDate,
     time:new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}).replace(':','h'),
@@ -10152,14 +10332,14 @@ function openDealModal(preset){
       <div style="display:flex;align-items:center;gap:12px;">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         <div>
-          <div style="font-size:15px;font-weight:700;">Bilan du RDV showroom</div>
+          <div id="sb-modal-title" style="font-size:15px;font-weight:700;">Bilan du RDV</div>
           <div id="sb-sub" style="font-size:11px;color:rgba(255,255,255,.78);margin-top:1px;"></div>
         </div>
       </div>
       <button onclick="closeShowroomBilanModal()" style="width:28px;height:28px;border-radius:7px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;font-family:inherit;">✕</button>
     </div>
 
-    <!-- Barre de progression 1-2-3 -->
+    <!-- Barre de progression 1-2-3-4 -->
     <div style="padding:14px 20px 8px;border-bottom:1px solid var(--brd);">
       <div style="display:flex;align-items:center;gap:8px;">
         <div id="sb-prog-1" class="sb-prog-step active" style="display:flex;align-items:center;gap:6px;flex:1;">
@@ -10172,8 +10352,13 @@ function openDealModal(preset){
           <div class="sb-prog-lbl">Activités</div>
           <div class="sb-prog-line"></div>
         </div>
-        <div id="sb-prog-3" class="sb-prog-step" style="display:flex;align-items:center;gap:6px;">
+        <div id="sb-prog-3" class="sb-prog-step" style="display:flex;align-items:center;gap:6px;flex:1;">
           <div class="sb-prog-num">3</div>
+          <div class="sb-prog-lbl">Compléter</div>
+          <div class="sb-prog-line"></div>
+        </div>
+        <div id="sb-prog-4" class="sb-prog-step" style="display:flex;align-items:center;gap:6px;">
+          <div class="sb-prog-num">4</div>
           <div class="sb-prog-lbl">Suite</div>
         </div>
       </div>
@@ -10235,8 +10420,15 @@ function openDealModal(preset){
         <div style="font-size:11px;color:var(--txt3);margin-top:10px;text-align:center;">Optionnel — passez directement à l'étape 3 si rien à signaler.</div>
       </div>
 
-      <!-- ===== ÉTAPE 3 — Suite ===== -->
+      <!-- ===== ÉTAPE 3 — Compléter l'affaire ===== -->
       <div id="sb-step-3" class="sb-step-section" style="display:none;">
+        <div style="font-size:15px;font-weight:600;color:var(--txt);margin-bottom:6px;text-align:center;">Compléter l'affaire</div>
+        <div style="font-size:11.5px;color:var(--txt3);margin-bottom:14px;text-align:center;">Précisez les véhicules présentés, leur financement et leur montant global</div>
+        <div id="sb-veh-list"></div>
+      </div>
+
+      <!-- ===== ÉTAPE 4 — Suite ===== -->
+      <div id="sb-step-4" class="sb-step-section" style="display:none;">
         <div style="font-size:15px;font-weight:600;color:var(--txt);margin-bottom:14px;text-align:center;">Quelle suite ?</div>
         <div id="sb-suite-buttons" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;"></div>
 
@@ -10253,7 +10445,7 @@ function openDealModal(preset){
         <button id="sb-back" class="btn-o" onclick="sbGoStep(_sbStep-1)" style="display:none;">← Retour</button>
         <button class="btn-o" onclick="closeShowroomBilanModal()">Annuler</button>
         <div style="flex:1;"></div>
-        <button id="sb-next" class="btn" onclick="sbGoStep(_sbStep+1)" disabled style="opacity:.5;">Continuer →</button>
+        <button id="sb-next" class="btn" onclick="sbNext()" disabled style="opacity:.5;">Continuer →</button>
         <button id="sb-validate" class="btn" onclick="confirmShowroomBilan()" style="display:none;" disabled>Valider</button>
       </div>
     </div>
