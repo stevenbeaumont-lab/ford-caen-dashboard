@@ -2755,7 +2755,18 @@ function _doRelModal(dId,rId,deal,rel){
   // Reset KPI pills: only appel checked
   ['appel','essai','offre','reprise','rdv'].forEach(function(k){var el=document.getElementById('om-kpi-'+k);if(el)el.checked=(k==='appel');});
   preCheckKpi(rel.type);
-  if(_lastOutcome&&_lastOutcome!=='refl')selOut(_lastOutcome);
+  // 🔄 Reset complet : aucun résultat pré-sélectionné, formulaire de relance caché
+  _om.out = null;
+  ['vendu','relance','showroom','refl','perdu','noreply'].forEach(function(k){
+    var el = document.getElementById('ob-'+k);
+    if(!el) return;
+    el.classList.remove('active');
+    el.style.borderColor = 'var(--brd)';
+    el.style.borderWidth = '1px';
+    el.style.background = '';
+    var t = el.querySelector('.om-res-t'); if(t) t.style.color = '';
+  });
+  var nf = document.getElementById('om-nf'); if(nf) nf.style.display = 'none';
   // 🎯 Bandeau "Client venu" si l'affaire est incomplète (vient d'un RDV showroom ou chez le client)
   var venuBanner = document.getElementById('om-venu-banner');
   if(venuBanner){
