@@ -3457,6 +3457,164 @@ function addRdv(){
   showToastMsg('\u2713 '+cfg.title+' créé — '+client);
 }
 
+// ============================================
+// ✏️ COMPLÉTER UNE AFFAIRE (RDV transformé en projet identifié)
+// ============================================
+function openCompleteDealModal(dealId){
+  const d = deals.find(x=>x.id===dealId);
+  if(!d) return;
+  
+  // Liste des modèles depuis CFG
+  const modeles = (CFG && CFG.modeles) || ['Puma','Kuga','Focus','Fiesta','Mustang','Ranger','Transit','Tourneo','Explorer','Mustang Mach-E'];
+  const finOptions = ['LOA','LLD','Comptant','Crédit classique'];
+  
+  // Pré-remplir avec les valeurs actuelles (en ignorant les placeholders)
+  const curVeh = d.vehicules && d.vehicules[0] ? d.vehicules[0] : {};
+  const curModele = (curVeh.modele && curVeh.modele !== 'À préciser') ? curVeh.modele : '';
+  const curFin = (curVeh.financement && curVeh.financement !== 'Non défini') ? curVeh.financement : '';
+  const curMontant = curVeh.montantFin || '';
+  
+  let m = document.getElementById('complete-deal-modal');
+  if(m) m.remove();
+  m = document.createElement('div');
+  m.id = 'complete-deal-modal';
+  m.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:2100;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;backdrop-filter:blur(6px);overflow-y:auto;';
+  m.onclick = function(e){ if(e.target===m) m.remove(); };
+  
+  const modelOpts = '<option value="">— Choisir un modèle —</option>'
+    + modeles.map(function(mo){ return '<option'+(curModele===mo?' selected':'')+'>'+mo+'</option>'; }).join('');
+  
+  const finBtns = finOptions.map(function(f){
+    var sel = (curFin===f);
+    return '<button type="button" onclick="_compSetFin(\''+f+'\')" data-fin="'+f+'" class="'+(sel?'sel':'')+'" style="padding:9px 14px;border-radius:8px;border:'+(sel?'2px':'1px')+' solid '+(sel?'var(--ford)':'var(--brd)')+';background:'+(sel?'var(--ford-lt)':'var(--card2)')+';color:'+(sel?'var(--ford)':'var(--txt2)')+';font-size:13px;font-weight:'+(sel?'700':'500')+';cursor:pointer;font-family:inherit;flex:1;min-width:80px;">'+f+'</button>';
+  }).join('');
+  
+  m.innerHTML = `
+    <div style="background:var(--card);border:1px solid var(--brd);border-radius:16px;max-width:520px;width:100%;margin:auto;box-shadow:0 20px 50px rgba(15,23,42,.3);overflow:hidden;">
+      <div style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:18px 22px;color:#fff;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:24px;">🎯</span>
+        <div style="flex:1;">
+          <div style="font-size:15px;font-weight:700;letter-spacing:-.01em;">Compléter l'affaire</div>
+          <div style="font-size:11px;opacity:.85;margin-top:1px;">${escapeHtml(d.client)} — projet désormais identifié</div>
+        </div>
+        <button onclick="document.getElementById('complete-deal-modal').remove()" style="width:30px;height:30px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.12);cursor:pointer;color:#fff;font-family:inherit;font-size:15px;">✕</button>
+      </div>
+      <div style="padding:22px;display:flex;flex-direction:column;gap:16px;">
+        <!-- Véhicule -->
+        <div>
+          <label class="label" style="display:block;margin-bottom:6px;">🚗 Modèle du véhicule *</label>
+          <select id="comp-modele" style="width:100%;">${modelOpts}</select>
+          <input id="comp-modele-custom" type="text" placeholder="Ou précisez un autre modèle (ex: Capri, S-MAX...)" style="width:100%;margin-top:6px;font-size:13px;" value="${(curModele && !modeles.includes(curModele))?escapeHtml(curModele):''}">
+        </div>
+        
+        <!-- Financement -->
+        <div>
+          <label class="label" style="display:block;margin-bottom:6px;">💰 Mode de financement *</label>
+          <div id="comp-fin-btns" style="display:flex;gap:6px;flex-wrap:wrap;">${finBtns}</div>
+          <input type="hidden" id="comp-fin" value="${escapeHtml(curFin)}">
+        </div>
+        
+        <!-- Montant (visible seulement si LOA/LLD) -->
+        <div id="comp-montant-wrap" style="display:${(curFin==='LOA'||curFin==='LLD')?'block':'none'};">
+          <label class="label" style="display:block;margin-bottom:6px;">Montant mensuel (€)</label>
+          <input id="comp-montant" type="number" placeholder="ex: 380" value="${escapeHtml(curMontant)}" style="width:100%;font-size:13px;">
+        </div>
+        
+        <!-- Note de complétion (optionnelle) -->
+        <div>
+          <label class="label" style="display:block;margin-bottom:6px;">📝 Note de complétion (optionnel)</label>
+          <textarea id="comp-note" rows="2" placeholder="Ex: Client confirmé venir au showroom mardi, intéressé par Puma hybride..." style="width:100%;padding:9px 11px;border:1px solid var(--brd);border-radius:8px;background:var(--card2);color:var(--txt);font-family:inherit;font-size:13px;resize:vertical;"></textarea>
+        </div>
+        
+        <!-- Boutons -->
+        <div style="display:flex;gap:8px;justify-content:flex-end;padding-top:8px;border-top:1px solid var(--brd);margin-top:4px;">
+          <button class="btn-o" onclick="document.getElementById('complete-deal-modal').remove()">Annuler</button>
+          <button onclick="confirmCompleteDeal(${d.id})" style="display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:700;padding:10px 22px;border-radius:9px;border:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;cursor:pointer;font-family:inherit;box-shadow:0 3px 10px rgba(16,185,129,.3);">✓ Valider</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+}
+
+function _compSetFin(fin){
+  document.getElementById('comp-fin').value = fin;
+  document.querySelectorAll('#comp-fin-btns button').forEach(function(b){
+    var sel = b.getAttribute('data-fin')===fin;
+    b.classList.toggle('sel', sel);
+    b.style.border = (sel?'2px':'1px') + ' solid ' + (sel?'var(--ford)':'var(--brd)');
+    b.style.background = sel ? 'var(--ford-lt)' : 'var(--card2)';
+    b.style.color = sel ? 'var(--ford)' : 'var(--txt2)';
+    b.style.fontWeight = sel ? '700' : '500';
+  });
+  // Afficher/masquer le montant
+  var wrap = document.getElementById('comp-montant-wrap');
+  if(wrap) wrap.style.display = (fin==='LOA' || fin==='LLD') ? 'block' : 'none';
+}
+
+function confirmCompleteDeal(dealId){
+  const d = deals.find(x=>x.id===dealId);
+  if(!d){ return; }
+  
+  var modele = (document.getElementById('comp-modele-custom')?.value || '').trim();
+  if(!modele) modele = document.getElementById('comp-modele')?.value || '';
+  modele = modele.trim();
+  
+  const fin = document.getElementById('comp-fin')?.value || '';
+  const montant = (document.getElementById('comp-montant')?.value || '').trim();
+  const note = (document.getElementById('comp-note')?.value || '').trim();
+  
+  if(!modele){
+    showToastMsg('\u26A0 Choisis ou saisis un modèle','var(--red)');
+    return;
+  }
+  if(!fin){
+    showToastMsg('\u26A0 Choisis un mode de financement','var(--red)');
+    return;
+  }
+  
+  // Mettre à jour le deal
+  if(!d.vehicules || !d.vehicules.length){
+    d.vehicules = [{id:Date.now(), modele:modele, financement:fin, qty:1}];
+  } else {
+    d.vehicules[0].modele = modele;
+    d.vehicules[0].financement = fin;
+    if(fin==='LOA' || fin==='LLD'){
+      if(montant) d.vehicules[0].montantFin = montant;
+    } else {
+      // Si pas LOA/LLD, on retire le montant
+      delete d.vehicules[0].montantFin;
+    }
+  }
+  // Mettre à jour les champs principaux
+  d.vehicule = (typeof vehiculeDisplay==='function') ? vehiculeDisplay({vehicules:d.vehicules}) : modele;
+  d.financement = fin;
+  
+  // Ajouter une note d'historique
+  if(!d.notes) d.notes = [];
+  d.notes.push({
+    date: curDate,
+    time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}).replace(':','h'),
+    text: '✏️ Affaire complétée — ' + modele + ' / ' + fin + (note ? ' — '+note : ''),
+    auto: true
+  });
+  
+  // Log historique Supabase
+  try{
+    if(typeof fcLogChange==='function'){
+      fcLogChange(d.id, 'edit', {field:'véhicule + financement', from:'À préciser / Non défini', to:modele+' / '+fin});
+    }
+  }catch(e){}
+  
+  // Fermer + sauver + re-render
+  const m = document.getElementById('complete-deal-modal');
+  if(m) m.remove();
+  invalidateRelCache();
+  save();
+  render();
+  refreshDealDetail();
+  showToastMsg('\u2713 Affaire complétée — '+modele+' / '+fin);
+}
+
 // ── Styled delete confirmation ─────────────────────────
 let _delPending=null;
 function showDelModal(title,sub,onConfirm){
@@ -9078,6 +9236,30 @@ function renderDealDetailModal(d){
   // Body
   const body=document.getElementById('deal-detail-body');
   if(!body)return;
+  
+  // 🎯 Bandeau "À compléter" si l'affaire vient d'un RDV / contient des placeholders
+  var needsCompletion = false;
+  var missingFields = [];
+  if(d.vehicule==='À préciser' || (d.vehicules && d.vehicules.some(function(v){return v.modele==='À préciser';}))){
+    needsCompletion = true;
+    missingFields.push('véhicule');
+  }
+  if(d.financement==='Non défini' || (d.vehicules && d.vehicules.some(function(v){return v.financement==='Non défini';}))){
+    needsCompletion = true;
+    missingFields.push('financement');
+  }
+  var completeBanner = '';
+  if(needsCompletion && d.statut!=='Vendu' && d.statut!=='Perdu'){
+    var label = missingFields.length===2 ? 'véhicule et financement' : missingFields[0];
+    completeBanner = '<div style="padding:14px 18px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-bottom:1px solid #f59e0b;display:flex;align-items:center;gap:12px;">'
+      + '<span style="font-size:24px;flex-shrink:0;">🎯</span>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<div style="font-size:13px;font-weight:700;color:#92400e;">Affaire à compléter</div>'
+      + '<div style="font-size:11px;color:#78350f;line-height:1.4;margin-top:2px;">Préciser '+label+' pour finaliser cette affaire</div>'
+      + '</div>'
+      + '<button onclick="openCompleteDealModal('+d.id+')" style="padding:8px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(217,119,6,.25);white-space:nowrap;">✏️ Compléter</button>'
+      + '</div>';
+  }
 
   // Carte contact (tel + email) — toujours visible
   var contactCard='<div style="padding:10px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-bottom:0.5px solid var(--brd);background:var(--card2);">';
@@ -9404,6 +9586,7 @@ function renderDealDetailModal(d){
   }
 
   body.innerHTML=
+    completeBanner+
     contactCard+
     '<div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:0.5px solid var(--brd);">'
     // Left col
