@@ -761,15 +761,43 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
   var lastHash = localStorage.getItem('fc_dl') || '';
   var pushing = false;
   
-  // 🎨 Indicateur visuel de sync
+  // 🎨 Indicateur visuel de sync (avec timestamp + clic pour resync)
+  var _lastSyncTime = null;
+  var _lastSyncState = 'idle';
+  
+  function _fcSyncRelativeTime(){
+    if(!_lastSyncTime) return '';
+    var s = Math.floor((Date.now() - _lastSyncTime)/1000);
+    if(s<5) return 'à l\'instant';
+    if(s<60) return 'il y a '+s+' s';
+    var m = Math.floor(s/60);
+    if(m<60) return 'il y a '+m+' min';
+    var h = Math.floor(m/60);
+    return 'il y a '+h+' h';
+  }
+  
   function setSyncIndicator(state){
+    _lastSyncState = state;
+    if(state==='ok') _lastSyncTime = Date.now();
+    
     var el = document.getElementById('fc-sync-indicator');
     if(!el){
       el = document.createElement('div');
       el.id = 'fc-sync-indicator';
-      el.style.cssText = 'position:fixed;bottom:14px;right:14px;background:var(--card);border:1px solid var(--brd);padding:6px 12px;border-radius:99px;font-size:11px;font-weight:600;z-index:9000;box-shadow:0 2px 8px rgba(0,0,0,.08);display:flex;align-items:center;gap:6px;font-family:system-ui;color:var(--txt2);transition:all .2s;';
+      el.title = 'Cliquer pour forcer la synchronisation';
+      el.style.cssText = 'position:fixed;bottom:14px;right:14px;background:var(--card);border:1px solid var(--brd);padding:6px 12px;border-radius:99px;font-size:11px;font-weight:600;z-index:9000;box-shadow:0 2px 8px rgba(0,0,0,.08);display:flex;align-items:center;gap:6px;font-family:system-ui;color:var(--txt2);transition:all .2s;cursor:pointer;user-select:none;';
+      el.onclick = function(){
+        // Force re-sync (push + pull)
+        try{
+          autoPush();
+          setTimeout(function(){
+            try{ autoPull(); }catch(e){}
+          }, 800);
+        }catch(e){}
+      };
       document.body.appendChild(el);
     }
+    
     if(state==='syncing'){
       el.style.borderColor='#3b82f6';
       el.style.color='#1e40af';
@@ -778,21 +806,41 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
     } else if(state==='ok'){
       el.style.borderColor='#10b981';
       el.style.color='#047857';
-      el.innerHTML='<span style="width:8px;height:8px;border-radius:50%;background:#10b981;"></span>Synchronisé';
+      var rel = _fcSyncRelativeTime();
+      el.innerHTML='<span style="width:8px;height:8px;border-radius:50%;background:#10b981;"></span>Synchronisé <span style="font-weight:400;opacity:.7;margin-left:2px;">· '+rel+'</span>';
       el.style.opacity='1';
-      setTimeout(function(){if(el)el.style.opacity='0.4';},2500);
+      setTimeout(function(){if(el && _lastSyncState==='ok')el.style.opacity='0.5';},2500);
     } else if(state==='error'){
       el.style.borderColor='#ef4444';
       el.style.color='#991b1b';
-      el.innerHTML='<span style="width:8px;height:8px;border-radius:50%;background:#ef4444;"></span>Erreur sync';
+      el.innerHTML='<span style="width:8px;height:8px;border-radius:50%;background:#ef4444;"></span>Erreur sync <span style="font-weight:400;opacity:.7;margin-left:2px;">— cliquer pour réessayer</span>';
       el.style.opacity='1';
     } else if(state==='offline'){
-      el.style.borderColor='#94a3b8';
-      el.style.color='#475569';
-      el.innerHTML='<span style="width:8px;height:8px;border-radius:50%;background:#94a3b8;"></span>Hors ligne';
+      el.style.borderColor='#f59e0b';
+      el.style.color='#92400e';
+      el.innerHTML='<span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;animation:pulse 2s infinite;"></span>Hors ligne <span style="font-weight:400;opacity:.7;margin-left:2px;">— modifs en attente</span>';
       el.style.opacity='1';
     }
   }
+  
+  // ⏱️ Rafraîchir le timestamp de l'indicateur toutes les 30 sec
+  setInterval(function(){
+    if(_lastSyncState==='ok' && _lastSyncTime){
+      var el = document.getElementById('fc-sync-indicator');
+      if(el){
+        var rel = _fcSyncRelativeTime();
+        el.innerHTML='<span style="width:8px;height:8px;border-radius:50%;background:#10b981;"></span>Synchronisé <span style="font-weight:400;opacity:.7;margin-left:2px;">· '+rel+'</span>';
+        // Si plus de 5 min sans sync alors qu'il y a des modifs locales, alerter
+        var ageMin = (Date.now() - _lastSyncTime)/60000;
+        var cur = localStorage.getItem('fc_dl') || '';
+        if(ageMin > 5 && cur !== lastHash){
+          el.style.borderColor='#f59e0b';
+          el.style.color='#92400e';
+          el.innerHTML='<span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;animation:pulse 1s infinite;"></span>Modifs en attente · '+rel;
+        }
+      }
+    }
+  }, 30000);
   
   // 🚀 Push INSTANTANÉ (pas de debounce) — si déjà en cours, on file un re-push immédiat après
   var _syncQueued = false;
@@ -982,16 +1030,33 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
   // 🌐 Détection online/offline
   window.addEventListener('online', function(){
     setSyncIndicator('syncing');
-    setTimeout(autoPush, 500);
+    setTimeout(function(){ autoPush(); setTimeout(autoPull, 600); }, 500);
   });
   window.addEventListener('offline', function(){
     setSyncIndicator('offline');
   });
-  // Push final juste avant fermeture
-  window.addEventListener('beforeunload', function(){
+  
+  // 📱 Quand l'utilisateur revient sur l'onglet/app → force push + pull immédiatement
+  // C'est CRUCIAL pour les mobiles : iOS/Android suspendent le JS quand l'écran s'éteint
+  // ou que l'app passe en arrière-plan. Au retour, on s'assure que tout est sync.
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState === 'visible'){
+      console.log('📱 App revenue au premier plan → force sync');
+      // 1. Push les modifs locales en attente
+      var cur = localStorage.getItem('fc_dl') || '';
+      if(cur !== lastHash){
+        setTimeout(autoPush, 50);
+      }
+      // 2. Pull les modifs distantes (au cas où Realtime a raté un événement)
+      setTimeout(function(){ try{ autoPull(); }catch(e){} }, 600);
+    }
+  });
+  
+  // 🚪 Push avant que la page parte en veille ou se ferme (mobile-friendly)
+  // pagehide est plus fiable que beforeunload sur mobile
+  function _flushBeforeHide(){
     var cur = localStorage.getItem('fc_dl') || '';
     if(cur !== lastHash){
-      // Tentative sync synchrone avant fermeture
       try{
         var dl = JSON.parse(cur);
         if(dl.d && dl.d.length){
@@ -1005,10 +1070,27 @@ kbd{display:inline-block;padding:2px 7px;font-size:11px;font-weight:600;font-fam
                 reprise:d.reprise,rdvSource:d.rdvSource,rdvType:d.rdvType,dateVente:d.dateVente,dateMaj:d.dateMaj}
             };}))], {type:'application/json'})
           );
+          // Push aussi les relances
+          var allRel = [];
+          dl.d.forEach(function(d){
+            (d.relances||[]).forEach(function(r){
+              allRel.push({
+                id: r.id ? String(r.id) : (d.id + '_' + Math.random().toString(36).slice(2,10)),
+                deal_id: d.id, date: r.date||null, type: r.type||null,
+                statut: r.statut||null, commentaire: r.commentaire||'', vendeur: d.vendeur||null
+              });
+            });
+          });
+          if(allRel.length){
+            navigator.sendBeacon(URL+'/rest/v1/relances?on_conflict=id',
+              new Blob([JSON.stringify(allRel)], {type:'application/json'}));
+          }
         }
       }catch(e){}
     }
-  });
+  }
+  window.addEventListener('pagehide', _flushBeforeHide);
+  window.addEventListener('beforeunload', _flushBeforeHide);
   
   // ========== PULL périodique (toutes les 30 sec) - backup au cas où Realtime fail ==========
   function autoPull(){
